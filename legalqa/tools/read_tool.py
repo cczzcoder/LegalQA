@@ -67,6 +67,7 @@ class ToolResult:
     query: str = ""               # 实际用于检索的串（可能是改写结果）
     rewrite_applied: bool = False
     rewrite_reason: str = ""
+    expanded_terms: list[str] = field(default_factory=list)   # 术语扩展命中的词
     message: str = ""             # 给模型看的文本
     error: str = ""
 
@@ -145,10 +146,14 @@ class ReadTool:
         index: VectorIndex,
         embedder: Embedder,
         rewriter: Rewriter | None = None,
+        always_expand: bool = False,
     ) -> None:
         self._index = index
         self._embedder = embedder
         self._rewriter = rewriter
+        # True 时不做「是否需要改写」的预判，每次检索都改写。
+        # pipeline 模式用得上：模型不参与检索，没人替它跨越词汇鸿沟。
+        self._always_expand = always_expand
 
     # -- 内部 ---------------------------------------------------------
     def _resolve_query(
@@ -156,11 +161,17 @@ class ReadTool:
     ) -> tuple[str, bool, str]:
         """改写预判 + 执行。任何失败都回退原文（BC-35）。"""
         text = (query or "").strip()
-        decision = needs_rewrite(text)
-        if not decision.needed or self._rewriter is None:
-            return text, False, "passthrough" if self._rewriter else "no_rewriter"
-        if not history:
-            return text, False, "no_history"
+        if self._rewriter is None:
+            return text, False, "no_rewriter"
+
+        # always_expand 时跳过预判：预判是为「长对话指代消解」设计的，
+        # 判断的是「有没有代词、够不够长」，管不了「口语 vs 法律术语」。
+        if not self._always_expand:
+            decision = needs_rewrite(text)
+            if not decision.needed:
+                return text, False, "passthrough"
+            if not history:
+                return text, False, "no_history"
         try:
             raw = self._rewriter(text, history)
         except Exception:                      # 改写永远不能阻塞主链路
@@ -212,6 +223,10 @@ class ReadTool:
                     return result
 
             # ---- 通道 A：语义召回 + 融合重排 ----
+            # 这里**不做术语扩展**。曾经按文档 §6.4.3 实现过口语→术语词表，
+            # 实测反而有害：R@6 从 60.8% 掉到 57.5%。
+            # bge-m3 的跨表达能力强于人为注入术语，追加术语会稀释原句语义。
+            # 真正有效的是 LLM 改写（R@6 55%→75%），见 §6.4.12。
             vector = self._embedder.embed_query(text)
             hits = self._index.search(vector, k=config.RAG_RECALL_K)
             if not hits:

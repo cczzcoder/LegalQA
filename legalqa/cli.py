@@ -322,8 +322,16 @@ def main(argv: list[str] | None = None) -> int:
 
     embedder = build_embedder(args.embedder)
     index = load_index(ROOT / args.index, ROOT / args.corpus, embedder)
-    read_tool = ReadTool(index, embedder)
     llm = build_llm(args)
+
+    # pipeline 模式下模型不参与检索，没人替它把「白送」翻成「赠与」。
+    # 实测加改写后检索 R@6 从 55% 提升到 75%，代价是每次检索多一次 LLM 调用。
+    read_tool = ReadTool(index, embedder)
+    if args.mode == PIPELINE and not args.dry_run:
+        from legalqa.tools.rewriter import make_llm_rewriter
+
+        read_tool = ReadTool(index, embedder, rewriter=make_llm_rewriter(llm), always_expand=True)
+
     app = build_graph(llm=llm, read_tool=read_tool, mode=args.mode)
 
     print(f"[i] 语料 {len(index)} 条 | 模式 {args.mode} | 阈值 {config.RAG_THRESHOLD}")
