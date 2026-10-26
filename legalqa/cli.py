@@ -314,6 +314,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="不接模型，只验证链路")
     parser.add_argument("--show-prompt", action="store_true", help="打印发给模型的内容")
     parser.add_argument("--check", action="store_true", help="接入自检：连通性 + 工具调用能力")
+    parser.add_argument(
+        "--rerank", action="store_true",
+        help="开启 LLM 重排：检索 R@6 +10pt，但每次检索多一次调用（+1.5s），端到端未见提升",
+    )
     args = parser.parse_args(argv)
     load_dotenv()
 
@@ -327,10 +331,24 @@ def main(argv: list[str] | None = None) -> int:
     # pipeline 模式下模型不参与检索，没人替它把「白送」翻成「赠与」。
     # 实测加改写后检索 R@6 从 55% 提升到 75%，代价是每次检索多一次 LLM 调用。
     read_tool = ReadTool(index, embedder)
-    if args.mode == PIPELINE and not args.dry_run:
-        from legalqa.tools.rewriter import make_llm_rewriter
+    if not args.dry_run:
+        from legalqa.tools.reranker import make_llm_reranker
 
-        read_tool = ReadTool(index, embedder, rewriter=make_llm_rewriter(llm), always_expand=True)
+        # 重排默认关闭：检索层 R@6 +10pt（40 条口语用例），
+        # 但 34 条端到端用例上通过率没有变化，而延迟 +15%。
+        # 等评测集扩大、能测出差异后再考虑改默认值。
+        reranker = make_llm_reranker(llm) if args.rerank else None
+
+        if args.mode == PIPELINE:
+            from legalqa.tools.rewriter import make_llm_rewriter
+
+            # pipeline 模式下模型不参与检索，需要显式改写跨越词汇鸿沟
+            read_tool = ReadTool(
+                index, embedder,
+                rewriter=make_llm_rewriter(llm), always_expand=True, reranker=reranker,
+            )
+        else:
+            read_tool = ReadTool(index, embedder, reranker=reranker)
 
     app = build_graph(llm=llm, read_tool=read_tool, mode=args.mode)
 
