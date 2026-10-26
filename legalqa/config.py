@@ -147,7 +147,10 @@ LEGAL_TERMS: Final[tuple[str, ...]] = (
 # 撞上语义相近的条文。所以阈值必须随语料规模重新校准，不能沿用。
 # 改语料后跑：python scripts/calibrate_threshold.py --golden data/golden/multi_law.jsonl
 RAG_THRESHOLD: Final[float] = 0.64
-RAG_TOP_K: Final[int] = 4               # 进 prompt 的条数
+RAG_TOP_K: Final[int] = 6               # 进 prompt 的条数
+# 实测依据（34 条评测集）：top-4 时「引用可溯源」只有 73.5%，
+# 失败用例的检索分数都在 0.6 以上——不是没检到，是检得不够全。
+# 模型会引用相关但未进 top-4 的条文（如「违法解除赔偿」需要第 47 条计算标准）。
 RAG_RECALL_K: Final[int] = 20           # 语义通道召回条数
 RAG_TIMEOUT_S: Final[float] = 2.0
 EMBEDDING_DIM: Final[int] = 512         # bge-small-zh-v1.5
