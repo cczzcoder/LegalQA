@@ -37,12 +37,21 @@ def load_cases(path: Path) -> list[dict]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def _norm_law(name: str) -> str:
+    return str(name or "").replace("中华人民共和国", "").strip()
+
+
 def matches(doc: dict, case: dict) -> bool:
+    """条号相同 **且** 是同一部法律。
+
+    不能用「包含」判断：`劳动合同法` 是 `劳动合同法实施条例` 的子串，
+    用包含会把实施条例的同号条文误判成命中，虚高指标。
+    实测有 3 组这样的父子法名（劳动合同法/实施条例、药品管理法/实施条例、
+    矿产资源法/实施条例），必须先规范化再精确比较。
+    """
     if doc.get("article_no") != case.get("article_no"):
         return False
-    expected = str(case.get("law", ""))
-    actual = str(doc.get("law_name", ""))
-    return expected in actual or actual in expected
+    return _norm_law(doc.get("law_name", "")) == _norm_law(case.get("law", ""))
 
 
 def main() -> int:

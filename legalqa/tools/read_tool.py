@@ -17,6 +17,7 @@ from typing import Any, Callable, Sequence
 from langchain_core.messages import AnyMessage
 
 from legalqa import config
+from legalqa.corpus.bm25 import BM25Index, rrf_fuse
 from legalqa.corpus.index import Embedder, VectorIndex
 from legalqa.pure.retrieval import (
     extract_article_no,
@@ -67,7 +68,6 @@ class ToolResult:
     query: str = ""               # 实际用于检索的串（可能是改写结果）
     rewrite_applied: bool = False
     rewrite_reason: str = ""
-    expanded_terms: list[str] = field(default_factory=list)   # 术语扩展命中的词
     message: str = ""             # 给模型看的文本
     error: str = ""
 
@@ -147,6 +147,7 @@ class ReadTool:
         embedder: Embedder,
         rewriter: Rewriter | None = None,
         always_expand: bool = False,
+        use_bm25: bool = False,
     ) -> None:
         self._index = index
         self._embedder = embedder
@@ -154,6 +155,9 @@ class ReadTool:
         # True 时不做「是否需要改写」的预判，每次检索都改写。
         # pipeline 模式用得上：模型不参与检索，没人替它跨越词汇鸿沟。
         self._always_expand = always_expand
+        # 混合召回：dense 擅长「意思相近但用词不同」，BM25 擅长「用词完全一样」。
+        # 构建 4264 条法条的 bigram 倒排约 1 秒，检索 < 5 ms。
+        self._bm25 = BM25Index(index.docs) if use_bm25 and len(index) else None
 
     # -- 内部 ---------------------------------------------------------
     def _resolve_query(
@@ -236,12 +240,29 @@ class ReadTool:
 
             result.dense_top1 = hits[0].score
             result.score = hits[0].score          # 阈值只吃这个值（BC-26）
-            candidates = [
-                {**hit.doc, "dense_score": hit.score} for hit in hits
-            ]
-            ranked = fuse_rank(candidates, top_k=config.RAG_TOP_K)
-            result.docs = ranked
-            result.channel = "dense"
+
+            if self._bm25 is not None:
+                # 混合召回：dense 与 BM25 各自取 20 条，用 RRF 按排名融合。
+                # **阈值仍用 dense 原始余弦**——RRF 分是相对量，跨 query 不可比，
+                # 拿它比阈值等于永远不 fallback（BC-26）。
+                bm25_hits = self._bm25.search(text, k=config.RAG_RECALL_K)
+                fused = rrf_fuse([hits, bm25_hits], top_k=config.RAG_TOP_K)
+                dense_map = {str(h.doc.get("id", "")): h.score for h in hits}
+                docs: list[dict[str, Any]] = []
+                for doc, rrf_score in fused:
+                    item = dict(doc)
+                    item["dense_score"] = dense_map.get(str(doc.get("id", "")), 0.0)
+                    item["rrf_score"] = rrf_score
+                    docs.append(item)
+                result.docs = docs
+                result.channel = "hybrid"
+            else:
+                candidates = [
+                    {**hit.doc, "dense_score": hit.score} for hit in hits
+                ]
+                result.docs = fuse_rank(candidates, top_k=config.RAG_TOP_K)
+                result.channel = "dense"
+
             result.message = format_context(result)
             return result
 
