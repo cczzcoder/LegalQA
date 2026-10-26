@@ -103,9 +103,14 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
     report.checks.append(check_refusal(checked, bool(case.get("should_answer"))))
     if case.get("should_answer") and case.get("must_mention"):
         report.checks.append(check_keywords(checked, case["must_mention"]))
-    if case.get("expect_law"):
+    if case.get("expect_law") or case.get("accept_articles"):
         report.checks.append(
-            check_expected_citation(checked, case["expect_law"], case.get("expect_article_no"))
+            check_expected_citation(
+                checked,
+                case.get("expect_law"),
+                case.get("expect_article_no"),
+                case.get("accept_articles"),
+            )
         )
     return report
 

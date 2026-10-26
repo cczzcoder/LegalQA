@@ -161,6 +161,27 @@ def test_expected_citation_matches_nested_interpretation() -> None:
     assert check_expected_citation(text, expected, 23).passed
 
 
+def test_expected_citation_accepts_alternative_article() -> None:
+    """同一结论的并列条文都算命中，不能只认合成金标那一条。"""
+    from legalqa.eval import check_expected_citation
+
+    text = "依据《劳动合同法》第八十二条，应支付二倍工资。"
+    alternatives = [{"law": "中华人民共和国劳动合同法", "article_no": 82}]
+
+    assert not check_expected_citation(
+        text, "中华人民共和国劳动合同法实施条例", 6
+    ).passed
+    assert check_expected_citation(
+        text, "中华人民共和国劳动合同法实施条例", 6, alternatives
+    ).passed
+    # 只给备选、不给主答案也能判
+    assert check_expected_citation(text, None, None, alternatives).passed
+    # 备选条号不对仍然失败
+    assert not check_expected_citation(
+        text, None, None, [{"law": "中华人民共和国劳动合同法", "article_no": 87}]
+    ).passed
+
+
 # ---------------------------------------------------------------------------
 # 拒答
 # ---------------------------------------------------------------------------

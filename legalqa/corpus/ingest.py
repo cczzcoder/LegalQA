@@ -62,6 +62,10 @@ _ARTICLE_RE = re.compile(
 _CHAPTER_RE = re.compile(r"^(第[一二三四五六七八九十]{1,6}章)[\s　]*(.*)$")
 _SECTION_RE = re.compile(r"^(第[一二三四五六七八九十]{1,6}节)[\s　]*(.*)$")
 _TOC_RE = re.compile(r"^目[\s　]*录$")
+# 正文之后常附「关于《……》的说明」/修订草案说明，它不是条文，
+# 但会被当成最后一条的续段。实测国家通用语言文字法第 32 条吞掉整篇说明，
+# 长度从 12 字膨胀到 946 字，还污染了检索与金标。
+_TAIL_NOTE_RE = re.compile(r"^关于.*的说明")
 
 
 @dataclass
@@ -223,6 +227,22 @@ def _find_body_start(paragraphs: Sequence[str]) -> int:
     return 0
 
 
+def _is_tail_note(lines: Sequence[str], index: int) -> bool:
+    """当前行是否是正文之后的「关于《……》的说明」标题。
+
+    PDF 常把标题折成两段：「关于《中华人民共和国国家通用」+
+    「语言文字法（修订草案）》的说明」。只看当前行会漏判，
+    所以遇到未闭合的「关于《」时向后拼几行确认。
+    """
+    flat = _norm(lines[index])
+    if _TAIL_NOTE_RE.match(flat):
+        return True
+    if flat.startswith("关于《") and "》" not in flat:
+        lookahead = "".join(_norm(line) for line in lines[index : index + 3])
+        return "的说明" in lookahead
+    return False
+
+
 def parse_articles(
     paragraphs: Iterable[str],
     *,
@@ -272,8 +292,14 @@ def parse_articles(
         )
         buffer = []
 
-    for line in lines[start:]:
+    for index in range(start, len(lines)):
+        line = lines[index]
         flat = _norm(line)
+
+        # 尾部说明不是法条：先收尾当前条，再停止解析。
+        if _is_tail_note(lines, index):
+            flush()
+            break
 
         chapter_match = _CHAPTER_RE.match(flat)
         if chapter_match:

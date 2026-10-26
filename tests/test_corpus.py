@@ -52,6 +52,40 @@ def test_parse_keeps_paragraph_breaks_for_clauses() -> None:
     assert articles[0].text.count("\n") == 2
 
 
+def test_parse_stops_at_tail_explanation() -> None:
+    """法条尾巴上的「关于《……》的说明」不是条文，不能被吞进最后一条。
+
+    实测国家通用语言文字法第 32 条因此吞掉整篇修订说明（12 字 → 946 字）。
+    """
+    paragraphs = [
+        "第一章　总纲",
+        "第一条　正文。",
+        "第三十二条　本法自年月日起施行。",
+        "关于《中华人民共和国X法（修订草案）》的说明———",
+        "一、修法的必要性。",
+    ]
+    articles = parse_articles(paragraphs, law_name="X法")
+
+    assert [a.article_no for a in articles] == [1, 32]
+    assert articles[-1].text == "本法自年月日起施行。"
+    assert "说明" not in articles[-1].text
+
+
+def test_parse_stops_at_split_tail_explanation() -> None:
+    """PDF 把「关于《……」和「……的说明」折成两行时也要截止。"""
+    paragraphs = [
+        "第一条　正文。",
+        "第三十二条　本法自年月日起施行。",
+        "关于 《中华人民共和国X法",
+        "（修订草案）》 的 说 明",
+        "一、修法的必要性。",
+    ]
+    articles = parse_articles(paragraphs, law_name="X法")
+
+    assert [a.article_no for a in articles] == [1, 32]
+    assert articles[-1].text == "本法自年月日起施行。"
+
+
 def test_parse_drops_preamble() -> None:
     """第一个「第X条」之前的内容（序言）整体丢弃。"""
     paragraphs = ["第一章　总纲", "序言段落一。", "序言段落二。", "第一条　正文。"]

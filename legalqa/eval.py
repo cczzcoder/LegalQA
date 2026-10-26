@@ -206,7 +206,10 @@ def check_keywords(text: str, keywords: Sequence[str]) -> CheckResult:
 
 
 def check_expected_citation(
-    text: str, expected_law: str | None, expected_article_no: int | None
+    text: str,
+    expected_law: str | None,
+    expected_article_no: int | None,
+    accept_articles: Sequence[dict[str, Any]] | None = None,
 ) -> CheckResult:
     """答案有没有引用「正确的那条法条」。
 
@@ -216,18 +219,39 @@ def check_expected_citation(
 
     端到端指标之所以对检索改善不敏感，就是因为缺这一项——
     「引用可溯源」只要求「引的是材料里的」，不要求「引的是对的」。
+
+    `accept_articles` 是**多答案**：法律问题常常有多个并列/补充条文都能
+    支撑同一结论（如「未签合同双倍工资」可引劳动合同法 82 或实施条例 6）。
+    只认一条会把正确回答判错——这是合成金标最大的噪声来源。
     """
-    if not expected_law or expected_article_no is None:
+    targets: list[tuple[str, int]] = []
+    if expected_law and expected_article_no is not None:
+        targets.append((str(expected_law), int(expected_article_no)))
+    for item in accept_articles or []:
+        if not isinstance(item, dict):
+            continue
+        law = item.get("law")
+        number = item.get("article_no")
+        if law and isinstance(number, int):
+            targets.append((str(law), number))
+    if not targets:
         return CheckResult("命中期望法条", True, "未指定")
 
     for cited_law, number in extract_citations(text):
-        if number != expected_article_no:
-            continue
-        # 没写法律名时放宽（模型常承前省略：「依据第四十七条」）
-        if cited_law is None or same_law(cited_law, expected_law):
-            return CheckResult("命中期望法条", True)
-    short = str(expected_law).replace("中华人民共和国", "")
-    return CheckResult("命中期望法条", False, f"未引用《{short}》第{expected_article_no}条")
+        for law, target_no in targets:
+            if number != target_no:
+                continue
+            # 没写法律名时放宽（模型常承前省略：「依据第四十七条」）
+            if cited_law is None or same_law(cited_law, law):
+                return CheckResult("命中期望法条", True)
+
+    short = str(targets[0][0]).replace("中华人民共和国", "")
+    extra = f"（另有 {len(targets) - 1} 条备选）" if len(targets) > 1 else ""
+    return CheckResult(
+        "命中期望法条",
+        False,
+        f"未引用《{short}》第{targets[0][1]}条{extra}",
+    )
 
 
 def extract_answer(messages: Sequence[Any]) -> str:
