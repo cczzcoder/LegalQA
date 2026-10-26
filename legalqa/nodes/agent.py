@@ -24,7 +24,23 @@ from legalqa import config
 from legalqa.state import LegalState
 from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool, ToolResult
 
-__all__ = ["make_agent_node", "make_tool_node", "call_signature"]
+__all__ = [
+    "make_agent_node",
+    "make_tool_node",
+    "call_signature",
+    "last_ai_was_interrupted",
+    "INTERRUPT_NOTE",
+]
+
+# 用户中途打断时追加给模型的提示。
+# 半截回答已经进了历史，但如果不说清「它是被打断的」，模型会把它当成完整结论，
+# 继续往下答时要么重复、要么基于一个未完成的论断推理。
+INTERRUPT_NOTE = (
+    "【系统提示】上一轮回答被用户中途打断，只输出到一半（那条消息标记了 interrupted）。"
+    "用户的新输入可能是对它的补充、修正，或者一个全新问题：\n"
+    "- 若是补充或修正：结合被打断的内容一起回答，把上一轮没说完的补完整；\n"
+    "- 若是全新问题：直接作答，不要重复上一轮已经说过的内容。"
+)
 
 _FALLBACK_REPLY = (
     "我暂时无法组织出可靠回答。可以请您把问题拆得更具体一些吗？"
@@ -48,6 +64,17 @@ def call_signature(name: str, args: Any) -> str:
 
 def _last_message(messages: Sequence[AnyMessage]) -> AnyMessage | None:
     return messages[-1] if messages else None
+
+
+def last_ai_was_interrupted(messages: Sequence[AnyMessage]) -> bool:
+    """窗口里最后一条 AI 消息是否被用户打断。
+
+    只看最后一条 AI：更早的中断已经处理过了，再提示会干扰模型。
+    """
+    for message in reversed(messages):
+        if isinstance(message, AIMessage):
+            return bool((message.additional_kwargs or {}).get("interrupted"))
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +103,10 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
                 "trace": trace,
                 "last_node": "agent",
             }
+
+        # 上一轮被用户打断：把半截回答标记出来，避免模型当它是完整结论
+        if last_ai_was_interrupted(messages):
+            messages = [*messages, HumanMessage(content=INTERRUPT_NOTE)]
 
         # 超预算时不绑工具，并明确告知「不能再检索」。
         # 否则模型会输出「再检索一下工伤认定程序……」这种半句话 —— 它想调工具

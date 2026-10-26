@@ -164,6 +164,40 @@ def build_llm(args: argparse.Namespace) -> Any:
         raise SystemExit(f"[x] 模型配置错误：{exc}") from exc
 
 
+def build_interrupted_state(
+    base: LegalState | None,
+    query: str,
+    partial_text: str,
+    turn_id: int,
+) -> LegalState:
+    """用户中途打断时，构造「已发生但未完成」的状态。
+
+    两个要点：
+
+    1. **半截回答必须入历史**，否则下一轮模型不知道刚才说到哪，会从头再答一遍。
+    2. **必须打 `interrupted` 标记**。不标记的话，模型会把半句话当成完整结论，
+       基于一个未完成的论断继续推理。
+    """
+    payload: dict[str, Any] = dict(base.to_dict()) if base is not None else {}
+    messages = list(payload.get("messages") or [])
+    messages.append(HumanMessage(id=f"h-{turn_id}", content=query))
+
+    text = (partial_text or "").strip()
+    if text:
+        messages.append(
+            AIMessage(
+                id=f"a-{turn_id}-interrupted",
+                content=text,
+                additional_kwargs={"interrupted": True},
+            )
+        )
+
+    payload["messages"] = messages
+    payload["turn_id"] = turn_id
+    payload["degraded"] = True
+    return LegalState(**payload)
+
+
 def final_answer(state: LegalState) -> str:
     """取最后一条 AI 消息。不要直接取 messages[-1] —— 异常路径下它可能是
     HumanMessage（用户提问），打印出来像是「模型复读了你的话」。"""
@@ -308,13 +342,58 @@ def main(argv: list[str] | None = None) -> int:
         }
         if state is not None:
             payload["trace"] = list(state.trace)[-50:]
-        result = coerce_state(app.invoke(payload))
+            payload["conversation_summary"] = state.conversation_summary
+            payload["summarized_count"] = state.summarized_count
+
+        partial: list[str] = []
+        final: dict[str, Any] | None = None
+        print()
+        try:
+            for mode, chunk in app.stream(payload, stream_mode=["messages", "values"]):
+                if mode == "messages":
+                    message, meta = chunk
+                    node = meta.get("langgraph_node")
+                    if node == "agent":
+                        content = getattr(message, "content", "")
+                        if isinstance(content, str) and content:
+                            partial.append(content)
+                            print(content, end="", flush=True)
+                    elif node == "tool_node":
+                        print("  [检索中…]", end="", flush=True)
+                elif mode == "values":
+                    final = chunk
+        except KeyboardInterrupt:
+            print("\n\n[!] 已中断（半截回答已保留，可继续追问）")
+            return build_interrupted_state(state, query, "".join(partial), turn_id)
+
+        if final is None:
+            print("\n[!] 本轮没有产生结果")
+            return state if state is not None else LegalState(turn_id=turn_id)
+
+        result = coerce_state(final)
+        # 流式打印的是 Agent 的原始输出；OutputGuard 之后可能追加免责声明
+        # 或整条替换（胜诉承诺）。必须把差异补打出来，否则用户看到的
+        # 和 state 里的回答不一致 —— 实测流式输出会漏掉免责声明。
+        streamed = "".join(partial)
+        final_text = final_answer(result)
+        if final_text != streamed:
+            if streamed and final_text.startswith(streamed):
+                print(final_text[len(streamed):], end="")
+            else:
+                print(f"\n[!] 回答已被输出护栏修正，完整版本：\n{final_text}")
+        print()
         if args.show_prompt:
             print("\n──── 发给模型的窗口 ────")
             for message in result.llm_messages:
                 print(f"[{type(message).__name__}] {str(message.content)[:300]}")
             print("────────────────────────")
-        print_turn(result)
+        print(
+            f"  ── 通道={result.retrieval_channel or '-'} "
+            f"score={result.rag_score:.2f} 轮次={result.iteration_count} "
+            f"降级={'是' if result.degraded else '否'}"
+        )
+        if result.error:
+            print(f"  ── error={result.error}")
         return result
 
     if args.query:
