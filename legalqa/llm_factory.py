@@ -68,6 +68,22 @@ _embeddings_instance: Any = None
 _BUILD_COUNT: dict[str, int] = {"llm": 0, "embeddings": 0}
 
 
+def _llm_temperature() -> float:
+    """采样温度。评测时设 LEGALQA_LLM_TEMPERATURE=0 以获得可重复结果。
+
+    实测：temperature=0.1 时，同一批 34 条用例跑三次，
+    稳定失败 3 条、偶发失败 5 条，通过率在 82.4%~88.2% 之间波动。
+    **单次评测的数字不能当结论用。**
+    """
+    raw = os.environ.get("LEGALQA_LLM_TEMPERATURE", "").strip()
+    if not raw:
+        return config.LLM_TEMPERATURE
+    try:
+        return min(max(float(raw), 0.0), 2.0)
+    except ValueError:
+        return config.LLM_TEMPERATURE
+
+
 def _llm_timeout() -> float:
     """LLM 超时。CPU 跑 7B 时 60 s 不够，允许用环境变量放宽。"""
     raw = os.environ.get("LEGALQA_LLM_TIMEOUT", "").strip()
@@ -124,7 +140,7 @@ def _build_llm() -> Any:
             ) from exc
         kwargs: dict[str, Any] = {
             "model": model,
-            "temperature": config.LLM_TEMPERATURE,
+            "temperature": _llm_temperature(),
             "num_predict": config.LLM_MAX_TOKENS,   # Ollama 用 num_predict 而非 max_tokens
             # timeout 不属于 ChatOllama 的显式参数，透传给底层 client，
             # 直接放在顶层在部分版本会被静默忽略。
@@ -163,7 +179,7 @@ def _build_llm() -> Any:
         kwargs = {
             "model": resolved_model,
             "api_key": api_key,
-            "temperature": config.LLM_TEMPERATURE,
+            "temperature": _llm_temperature(),
             "max_tokens": config.LLM_MAX_TOKENS,
             "top_p": config.LLM_TOP_P,
             "timeout": _llm_timeout(),
