@@ -122,6 +122,7 @@ def build_graph(
     read_tool: ReadTool,
     mode: str = LOOP,
     index: Any = None,
+    supplement_user_query: bool = False,
 ) -> Any:
     if mode not in (LOOP, PIPELINE):
         raise ValueError(f"未知模式 {mode!r}，可选：{LOOP} / {PIPELINE}")
@@ -147,7 +148,10 @@ def build_graph(
 
     if mode == LOOP:
         graph.add_node("agent", make_agent_node(llm, [READ_TOOL_SPEC]))
-        graph.add_node("tool_node", make_tool_node(read_tool))
+        graph.add_node(
+            "tool_node",
+            make_tool_node(read_tool, supplement_user_query=supplement_user_query),
+        )
         graph.add_conditional_edges(
             "input_guard",
             route_after_guard,

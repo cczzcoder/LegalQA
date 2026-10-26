@@ -322,3 +322,92 @@ def test_format_context_prefers_effective_over_version() -> None:
     # 法条行只显示施行日期，不重复显示版本日期
     article_line = next(line for line in text.splitlines() if line.startswith("【法条 1】"))
     assert "2020-05-28" not in article_line
+
+
+# ---------------------------------------------------------------------------
+# 用户原问题补召回
+# ---------------------------------------------------------------------------
+def _docs(prefix: str, n: int) -> list[dict]:
+    return [
+        {**DOCS[i % len(DOCS)], "id": f"{prefix}-{i}"}
+        for i in range(1, n + 1)
+    ]
+
+
+def test_supplement_adds_at_most_two_new_docs() -> None:
+    from legalqa.tools.read_tool import supplement_with_user_query
+
+    primary = ToolResult(docs=_docs("p", 6), score=0.8, channel="dense", query="model")
+    secondary = ToolResult(
+        docs=[_docs("p", 2)[0], *_docs("s", 4)],
+        score=0.7,
+        channel="dense",
+        query="user",
+    )
+    out = supplement_with_user_query(primary, secondary)
+
+    assert [d["id"] for d in out.docs] == [f"p-{i}" for i in range(1, 7)] + ["s-1", "s-2"]
+    assert out.channel == "dense+user"
+    assert out.score == 0.8
+    assert out.query == "model"
+
+
+def test_supplement_returns_secondary_when_primary_empty() -> None:
+    from legalqa.tools.read_tool import supplement_with_user_query
+
+    primary = ToolResult(error="empty_query")
+    secondary = ToolResult(docs=DOCS[:2], score=0.7, channel="dense")
+    assert supplement_with_user_query(primary, secondary) is secondary
+
+
+def test_supplement_skips_exact_primary() -> None:
+    from legalqa.tools.read_tool import supplement_with_user_query
+
+    primary = ToolResult(docs=DOCS[:1], score=1.0, channel="exact")
+    secondary = ToolResult(docs=DOCS[1:], score=0.7, channel="dense")
+    assert supplement_with_user_query(primary, secondary) is primary
+
+
+def test_tool_node_supplements_user_query() -> None:
+    """ToolNode 会用用户原问题再检索一次，但只补模型没覆盖的条文。"""
+    from langchain_core.messages import AIMessage
+
+    from legalqa.nodes.agent import make_tool_node
+    from legalqa.state import LegalState
+
+    class FakeTool:
+        name = "read_law"
+
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def run(self, query: str, history=None) -> ToolResult:
+            self.queries.append(query)
+            no = 1 if query == "模型查询" else 2
+            doc = {
+                "id": f"x-{no}", "law_name": "X法", "article_no": no,
+                "article_label": f"第{no}条", "text": f"第{no}条正文",
+                "is_valid": True, "effective_date": "2020-01-01",
+            }
+            result = ToolResult(docs=[doc], score=0.8, channel="dense", query=query)
+            result.message = format_context(result)
+            return result
+
+    tool = FakeTool()
+    state = LegalState(
+        messages=[
+            AIMessage(
+                id="a1",
+                content="",
+                tool_calls=[{"id": "c1", "name": "read_law", "args": {"query": "模型查询"}}],
+            )
+        ],
+        user_query="用户原问题",
+    )
+    out = make_tool_node(tool, supplement_user_query=True)(state)
+
+    assert tool.queries == ["模型查询", "用户原问题"]
+    content = out["messages"][0].content
+    assert "第1条正文" in content
+    assert "第2条正文" in content
+    assert {d["article_no"] for d in out["retrieved_docs"]} == {1, 2}

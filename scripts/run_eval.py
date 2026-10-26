@@ -127,6 +127,11 @@ def main() -> int:
     parser.add_argument("--rerank", action="store_true", help="开启 LLM 重排")
     parser.add_argument("--rewrite", action="store_true", help="开启检索前 LLM 改写")
     parser.add_argument(
+        "--supplement-user-query",
+        action="store_true",
+        help="工具检索后用用户原问题再检索一次，补最多 2 条模型 query 没覆盖的条文",
+    )
+    parser.add_argument(
         "--workers", type=int, default=1,
         help="并发数。每条用例 10 秒左右，串行跑 100 条要 20 分钟，并行能把评测压到可迭代的长度",
     )
@@ -161,7 +166,11 @@ def main() -> int:
     read_tool = ReadTool(
         index, embedder, reranker=reranker, rewriter=rewriter, always_expand=bool(rewriter)
     )
-    app = build_graph(llm=llm, read_tool=read_tool)
+    app = build_graph(
+        llm=llm,
+        read_tool=read_tool,
+        supplement_user_query=args.supplement_user_query,
+    )
 
     print(f"[i] 用例 {len(cases)} 条 | 索引 {len(index)} 条 | {len(index.law_names)} 部法律\n")
 

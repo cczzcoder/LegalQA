@@ -28,7 +28,13 @@ from legalqa.pure.retrieval import (
 )
 from legalqa.pure.rewrite import merge_rewrite_result, needs_rewrite
 
-__all__ = ["ReadTool", "ToolResult", "format_context", "READ_TOOL_SPEC"]
+__all__ = [
+    "ReadTool",
+    "ToolResult",
+    "format_context",
+    "supplement_with_user_query",
+    "READ_TOOL_SPEC",
+]
 
 Rewriter = Callable[[str, Sequence[AnyMessage]], str | None]
 
@@ -131,6 +137,63 @@ def format_context(result: ToolResult, *, threshold: float | None = None) -> str
             "或如实告知用户未找到依据。"
         )
     return "\n\n".join(blocks)
+
+
+def _doc_key(doc: dict[str, Any]) -> str:
+    return str(doc.get("id", "")) or f"{doc.get('law_name')}#{doc.get('article_no')}"
+
+
+def supplement_with_user_query(
+    primary: ToolResult,
+    secondary: ToolResult,
+    *,
+    top_k: int = config.RAG_TOP_K,
+    max_extra: int = 2,
+) -> ToolResult:
+    """用**用户原问题**的检索结果补充模型自己 query 的结果。
+
+    模型写的 query 更懂法言法语，但常丢掉原问题里的事实词
+    （「祖父母」「直接起诉」「设计合同」）。实测 12 条稳定失败里
+    4 条的目标条文只在用户原问题的 top-6 里。
+
+    只补最多 `max_extra` 条模型没覆盖的条文，保留模型原 top-6，
+    避免把 prompt 撑爆，也避免把模型已经找对的条文挤掉。
+    """
+    if not primary.docs:
+        return secondary if secondary.docs else primary
+    if primary.channel == "exact":
+        # 精确条号命中已经是最准的结果，不需要再补。
+        return primary
+
+    docs = [dict(doc) for doc in primary.docs]
+    seen = {_doc_key(doc) for doc in docs}
+    added = 0
+    for doc in secondary.docs:
+        key = _doc_key(doc)
+        if key in seen:
+            continue
+        seen.add(key)
+        docs.append(dict(doc))
+        added += 1
+        if added >= max_extra:
+            break
+    if not added:
+        return primary
+
+    best = primary if primary.score >= secondary.score else secondary
+    result = ToolResult(
+        docs=docs[: top_k + max_extra],
+        score=best.score,
+        dense_top1=best.dense_top1,
+        channel=f"{best.channel}+user" if best.channel else "user",
+        latency_ms=primary.latency_ms + secondary.latency_ms,
+        query=primary.query,
+        rewrite_applied=primary.rewrite_applied,
+        rewrite_reason=primary.rewrite_reason,
+        error=primary.error or secondary.error,
+    )
+    result.message = format_context(result)
+    return result
 
 
 # ---------------------------------------------------------------------------

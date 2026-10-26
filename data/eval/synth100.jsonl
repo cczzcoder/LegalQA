@@ -53,7 +53,7 @@
 {"id": "s100-053", "query": "我找会计事务所做审计，结果他们没按规矩办事还害我亏了钱，能让他们赔吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国注册会计师法", "expect_article_no": 56}
 {"id": "s100-054", "query": "老板把我无故辞退后，我又打赢了官司要求继续上班，那从被辞退到重新上班前这段时间的工资，老板该按原来工资标准补给我吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "最高人民法院关于审理劳动争议案件适用法律问题的解释（二）", "expect_article_no": 18}
 {"id": "s100-055", "query": "我家楼下夜市喇叭声吵得没法睡觉，找城管反映好几次都不管，他们能直接把喇叭收走吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国生态环境法典", "expect_article_no": 562}
-{"id": "s100-056", "query": "我卖的东西被说侵犯别人商标，工商部门查完说不构成犯罪，那他们还能罚我款或者让我赔钱吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国商标法", "expect_article_no": 75}
+{"id": "s100-056", "query": "我卖的东西被说侵犯别人商标，工商部门查完说不构成犯罪，那他们还能罚我款或者让我赔钱吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国商标法", "expect_article_no": 75, "accept_articles": [{"law": "中华人民共和国商标法", "article_no": 74}]}
 {"id": "s100-057", "query": "我家注册的商标快满十年了，是不是得赶紧去续期，不然就作废不能用了？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国商标法", "expect_article_no": 43}
 {"id": "s100-058", "query": "我们市里能出台专门保护少数民族权益、促进民族团结的具体规定吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民族团结进步促进法", "expect_article_no": 64}
 {"id": "s100-059", "query": "我家附近突然有架外国小飞机没打招呼就飞过头顶，还低空盘旋，这算违法吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民用航空法", "expect_article_no": 202}
@@ -85,7 +85,7 @@
 {"id": "s100-085", "query": "飞机在公海上空把我家房子砸坏了，该按哪地的规矩赔我钱？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民用航空法", "expect_article_no": 218}
 {"id": "s100-086", "query": "我借给朋友钱，他用房子抵押给我，现在过了三年没起诉他，还能不能拿房子抵债？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民法典", "expect_article_no": 419}
 {"id": "s100-087", "query": "我家楼下小餐馆老用一次性餐具，我劝他们改用可重复清洗的，他们说不赚钱没法换，这事儿能找谁管？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国生态环境法典", "expect_article_no": 997, "accept_articles": [{"law": "中华人民共和国生态环境法典", "article_no": 998}]}
-{"id": "s100-088", "query": "我买了辆二手电动车，后来发现车是别人抵押给卖家的，这车现在归我吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民法典", "expect_article_no": 313}
+{"id": "s100-088", "query": "我买了辆二手电动车，后来发现车是别人抵押给卖家的，这车现在归我吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民法典", "expect_article_no": 313, "accept_articles": [{"law": "中华人民共和国民法典", "article_no": 311}]}
 {"id": "s100-089", "query": "我家旁边工厂排污水把菜地搞坏了，找他们赔钱没谈拢，能直接去法院告吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国生态环境法典", "expect_article_no": 1077}
 {"id": "s100-090", "query": "我买房子还没办完过户，这期间租出去的房租该归谁？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国民法典", "expect_article_no": 630}
 {"id": "s100-091", "query": "我家附近要建新监狱，听说是司法部批的，这事儿老百姓能提意见吗？", "category": "synthetic", "should_answer": true, "must_mention": [], "expect_law": "中华人民共和国监狱法", "expect_article_no": 11, "accept_articles": [{"law": "中华人民共和国生态环境法典", "article_no": 90}, {"law": "中华人民共和国生态环境法典", "article_no": 101}, {"law": "中华人民共和国生态环境法典", "article_no": 103}]}

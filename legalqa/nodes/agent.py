@@ -23,7 +23,12 @@ from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMes
 from legalqa import config
 from legalqa.pure.window import insert_before_last_human
 from legalqa.state import LegalState
-from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool, ToolResult
+from legalqa.tools.read_tool import (
+    READ_TOOL_SPEC,
+    ReadTool,
+    ToolResult,
+    supplement_with_user_query,
+)
 
 __all__ = [
     "make_agent_node",
@@ -199,8 +204,15 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
 # ---------------------------------------------------------------------------
 # ToolNode
 # ---------------------------------------------------------------------------
-def make_tool_node(read_tool: ReadTool) -> Callable[[LegalState], dict]:
-    """构造工具执行节点。"""
+def make_tool_node(
+    read_tool: ReadTool, *, supplement_user_query: bool = False
+) -> Callable[[LegalState], dict]:
+    """构造工具执行节点。
+
+    `supplement_user_query=True` 时，额外用**用户原问题**检索一次，
+    把模型 query 没覆盖的最多 2 条条文补进结果。模型自己写的 query
+    更懂法言法语，但会丢掉原问题里的事实词（「祖父母」「直接起诉」）。
+    """
 
     def tool_node(state: LegalState) -> dict[str, Any]:
         trace = state.with_trace("tool_node")
@@ -267,6 +279,17 @@ def make_tool_node(read_tool: ReadTool) -> Callable[[LegalState], dict]:
             except Exception as exc:      # 双保险：工具内部已兜底，这里再兜一层
                 result = ToolResult(error=f"{type(exc).__name__}: {exc}")
                 result.message = f"【检索失败】{result.error}\n请如实告知用户暂时无法查阅法条。"
+
+            # 模型 query 之外的第二次检索：只补用户原问题新命中的条文，
+            # 不占额外工具调用次数，也不额外调用 LLM。
+            if supplement_user_query:
+                user_query = str(state.get("user_query") or "").strip()
+                if user_query and user_query != query.strip():
+                    try:
+                        user_result = read_tool.run(user_query, messages)
+                        result = supplement_with_user_query(result, user_result)
+                    except Exception:
+                        pass
 
             new_results.append(
                 ToolMessage(
