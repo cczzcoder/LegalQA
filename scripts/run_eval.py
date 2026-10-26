@@ -32,6 +32,7 @@ from legalqa.eval import (  # noqa: E402
     check_hallucination,
     check_keywords,
     check_length,
+    check_expected_citation,
     check_refusal,
     check_traceability,
     extract_answer,
@@ -70,6 +71,10 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
     report.checks.append(check_refusal(answer, bool(case.get("should_answer"))))
     if case.get("should_answer") and case.get("must_mention"):
         report.checks.append(check_keywords(answer, case["must_mention"]))
+    if case.get("expect_law"):
+        report.checks.append(
+            check_expected_citation(answer, case["expect_law"], case.get("expect_article_no"))
+        )
     return report
 
 
@@ -81,6 +86,8 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 条")
     parser.add_argument("--category", default="", help="只跑某一类")
     parser.add_argument("--json", default="", help="把明细写到这个文件")
+    parser.add_argument("--rerank", action="store_true", help="开启 LLM 重排")
+    parser.add_argument("--rewrite", action="store_true", help="开启检索前 LLM 改写")
     args = parser.parse_args()
 
     load_dotenv()
@@ -96,7 +103,23 @@ def main() -> int:
     embedder = build_embedder(args.embedder)
     index = VectorIndex.load(ROOT / args.index)
     llm = build_llm(argparse.Namespace(dry_run=False, provider=None, model=None))
-    app = build_graph(llm=llm, read_tool=ReadTool(index, embedder))
+
+    # 让实验可复现：E8 的 rerank 对比最初是临时脚本跑的，这里补上开关
+    reranker = None
+    if args.rerank:
+        from legalqa.tools.reranker import make_llm_reranker
+
+        reranker = make_llm_reranker(llm)
+    rewriter = None
+    if args.rewrite:
+        from legalqa.tools.rewriter import make_llm_rewriter
+
+        rewriter = make_llm_rewriter(llm)
+
+    read_tool = ReadTool(
+        index, embedder, reranker=reranker, rewriter=rewriter, always_expand=bool(rewriter)
+    )
+    app = build_graph(llm=llm, read_tool=read_tool)
 
     print(f"[i] 用例 {len(cases)} 条 | 索引 {len(index)} 条 | {len(index.law_names)} 部法律\n")
 

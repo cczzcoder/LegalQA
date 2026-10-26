@@ -61,6 +61,8 @@ def main() -> int:
     parser.add_argument("--embedder", default="ollama", choices=["hash", "ollama", "hf"])
     parser.add_argument("--topk", type=int, default=0, help="默认用 config.RAG_TOP_K")
     parser.add_argument("--show-failures", type=int, default=8)
+    parser.add_argument("--rerank", action="store_true", help="开启 LLM 重排")
+    parser.add_argument("--rewrite", action="store_true", help="开启检索前 LLM 改写")
     args = parser.parse_args()
 
     load_dotenv()
@@ -71,7 +73,24 @@ def main() -> int:
 
     embedder = build_embedder(args.embedder)
     index = VectorIndex.load(ROOT / args.index)
-    tool = ReadTool(index, embedder)
+
+    reranker = rewriter = None
+    if args.rerank or args.rewrite:
+        from legalqa.cli import build_llm
+
+        llm = build_llm(argparse.Namespace(dry_run=False, provider=None, model=None))
+        if args.rerank:
+            from legalqa.tools.reranker import make_llm_reranker
+
+            reranker = make_llm_reranker(llm)
+        if args.rewrite:
+            from legalqa.tools.rewriter import make_llm_rewriter
+
+            rewriter = make_llm_rewriter(llm)
+
+    tool = ReadTool(
+        index, embedder, reranker=reranker, rewriter=rewriter, always_expand=bool(rewriter)
+    )
 
     k = args.topk or 6
     hit1 = hitk = 0

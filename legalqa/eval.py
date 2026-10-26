@@ -33,6 +33,7 @@ __all__ = [
     "check_hallucination",
     "check_refusal",
     "check_keywords",
+    "check_expected_citation",
 ]
 
 # 答案长度合理区间。太短说明敷衍，太长说明没抓住重点。
@@ -170,6 +171,31 @@ def check_keywords(text: str, keywords: Sequence[str]) -> CheckResult:
     if any(k in body for k in keywords):
         return CheckResult("关键要素", True)
     return CheckResult("关键要素", False, "均未提及: " + "、".join(keywords))
+
+
+def check_expected_citation(
+    text: str, expected_law: str | None, expected_article_no: int | None
+) -> CheckResult:
+    """答案有没有引用「正确的那条法条」。
+
+    这个指标和「引用可溯源」互补：
+      - 可溯源 = 引的条号在检索材料里（测检索覆盖）
+      - 命中期望 = 引的条号是对的（测整条链路）
+
+    端到端指标之所以对检索改善不敏感，就是因为缺这一项——
+    「引用可溯源」只要求「引的是材料里的」，不要求「引的是对的」。
+    """
+    if not expected_law or expected_article_no is None:
+        return CheckResult("命中期望法条", True, "未指定")
+
+    for cited_law, number in extract_citations(text):
+        if number != expected_article_no:
+            continue
+        # 没写法律名时放宽（模型常承前省略：「依据第四十七条」）
+        if cited_law is None or same_law(cited_law, expected_law):
+            return CheckResult("命中期望法条", True)
+    short = str(expected_law).replace("中华人民共和国", "")
+    return CheckResult("命中期望法条", False, f"未引用《{short}》第{expected_article_no}条")
 
 
 def extract_answer(messages: Sequence[Any]) -> str:
