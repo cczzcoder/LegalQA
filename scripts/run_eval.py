@@ -37,6 +37,7 @@ from legalqa.eval import (  # noqa: E402
     check_refusal,
     check_traceability,
     extract_answer,
+    strip_backfill_appendix,
 )
 from legalqa.graph import build_graph  # noqa: E402
 from legalqa.state import coerce_state  # noqa: E402
@@ -56,6 +57,10 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
     latency = int((time.perf_counter() - started) * 1000)
 
     answer = extract_answer(state.messages)
+    # 所有基于文本的检查都只看模型自己写的正文：回捞附录里是法条原文，
+    # 里面的交叉引用（「依照本法第三十八条」）不是模型的引用行为，
+    # 算进去会既冤枉系统、又可能让没引对的回答蒙对。
+    checked = strip_backfill_appendix(answer)
     report = CaseReport(
         case_id=case["id"],
         query=case["query"],
@@ -63,18 +68,27 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         iterations=state.iteration_count,
         channel=state.retrieval_channel,
         score=state.rag_score,
+        answer=answer,
+        retrieved=[
+            {
+                "law": d.get("law_name", ""),
+                "no": d.get("article_no"),
+                "valid": d.get("is_valid", True),
+            }
+            for d in (state.retrieved_docs or [])
+        ],
     )
 
-    report.checks.append(check_disclaimer(answer))
-    report.checks.append(check_length(answer))
-    report.checks.append(check_traceability(answer, state.retrieved_docs))
-    report.checks.append(check_hallucination(answer, index))
-    report.checks.append(check_refusal(answer, bool(case.get("should_answer"))))
+    report.checks.append(check_disclaimer(checked))
+    report.checks.append(check_length(checked))
+    report.checks.append(check_traceability(checked, state.retrieved_docs))
+    report.checks.append(check_hallucination(checked, index))
+    report.checks.append(check_refusal(checked, bool(case.get("should_answer"))))
     if case.get("should_answer") and case.get("must_mention"):
-        report.checks.append(check_keywords(answer, case["must_mention"]))
+        report.checks.append(check_keywords(checked, case["must_mention"]))
     if case.get("expect_law"):
         report.checks.append(
-            check_expected_citation(answer, case["expect_law"], case.get("expect_article_no"))
+            check_expected_citation(checked, case["expect_law"], case.get("expect_article_no"))
         )
     return report
 
@@ -193,6 +207,8 @@ def main() -> int:
                 "iterations": r.iterations,
                 "channel": r.channel,
                 "score": round(r.score, 4),
+                "answer": r.answer,
+                "retrieved": r.retrieved,
                 "checks": [
                     {"name": c.name, "passed": c.passed, "detail": c.detail}
                     for c in r.checks

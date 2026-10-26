@@ -18,7 +18,7 @@ from legalqa import config
 from legalqa.nodes.agent import make_agent_node, make_tool_node
 from legalqa.nodes.context import make_context_compress_node
 from legalqa.nodes.fallback import save_state_node, static_fallback_node
-from legalqa.nodes.guards import input_guard_node, output_guard_node
+from legalqa.nodes.guards import input_guard_node, make_output_guard_node
 from legalqa.state import LegalState
 from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool
 
@@ -48,8 +48,16 @@ def route_after_agent(state: LegalState) -> str:
     1. 出错 → fallback（必须排第一，否则带着 error 继续跑）
     2. 预算耗尽 → end（必须排在 tool_calls 判定之前，BC-44）
     3. 无 tool_calls → end
-    4. 工具调用次数超限 → end
+    4. 工具调用次数超限 → **answer**（不是 end）
     5. 其余 → tools
+
+    第 4 步返回 `answer` 而不是 `end`，是 E13 修掉的一个真实事故：
+    模型想继续检索但次数已用尽时，直接 `end` 会让**最后一条消息停留在
+    「带 tool_calls、正文为空」的 AIMessage 上**。OutputGuard 见到 tool_calls
+    会跳过处理（它只管最终回答），于是用户收到 0 字回答，免责声明也没处加。
+    正确做法是把模型送回 Agent 再生成一次 —— 那一轮工具已解绑（见
+    `make_agent_node` 的 `tool_budget_exhausted`），它只能输出正文。
+    `iteration >= MAX_ITER` 会兜住这一跳，不会无限循环。
     """
     if state.get("error"):
         return "fallback"
@@ -65,7 +73,7 @@ def route_after_agent(state: LegalState) -> str:
         return "end"
 
     if len(state.get("tool_call_history") or []) >= config.MAX_TOOL_CALLS:
-        return "end"
+        return "answer"
     return "tools"
 
 
@@ -113,15 +121,22 @@ def build_graph(
     llm: Any,
     read_tool: ReadTool,
     mode: str = LOOP,
+    index: Any = None,
 ) -> Any:
     if mode not in (LOOP, PIPELINE):
         raise ValueError(f"未知模式 {mode!r}，可选：{LOOP} / {PIPELINE}")
+
+    # 索引用于 OutputGuard 的「引用回捞」：回答里引的条号不在本批材料时，
+    # 按 (法律名, 条号) 回查法条库，区分「只是没召回」和「编造」。
+    # 不传就退化为旧行为（不在材料即未溯源）。
+    if index is None:
+        index = getattr(read_tool, "index", None)
 
     graph = StateGraph(LegalState)
     graph.add_node("input_guard", input_guard_node)
     # 传 llm 才启用滚动摘要：窗口之外的历史压成事实摘要，避免 6 轮后失忆
     graph.add_node("context_compress", make_context_compress_node(llm))
-    graph.add_node("output_guard", output_guard_node)
+    graph.add_node("output_guard", make_output_guard_node(index))
     graph.add_node("static_fallback", static_fallback_node)
     graph.add_node("save_state", save_state_node)
 
@@ -142,7 +157,14 @@ def build_graph(
         graph.add_conditional_edges(
             "agent",
             route_after_agent,
-            {"tools": "tool_node", "end": "output_guard", "fallback": "static_fallback"},
+            {
+                "tools": "tool_node",
+                "end": "output_guard",
+                # 次数用尽但模型还想调工具 → 回 compress 再走一次 agent，
+                # 那一轮已解绑工具，只能出正文（E13）
+                "answer": "context_compress",
+                "fallback": "static_fallback",
+            },
         )
         graph.add_edge("tool_node", "context_compress")   # 回边，构成循环
     else:
@@ -165,7 +187,14 @@ def build_graph(
         graph.add_conditional_edges(
             "agent",
             route_after_agent,
-            {"end": "output_guard", "fallback": "static_fallback", "tools": "output_guard"},
+            {
+                "end": "output_guard",
+                "fallback": "static_fallback",
+                "tools": "output_guard",
+                # pipeline 不绑工具，理论上产不出 tool_calls，`answer` 不可达；
+                # 仍显式映射，避免某个模型硬编 tool_calls 时抛 KeyError。
+                "answer": "context_compress",
+            },
         )
 
     return graph.compile()

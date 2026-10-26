@@ -191,3 +191,63 @@ def test_extract_answer_takes_last_ai() -> None:
 
 def test_extract_answer_without_ai() -> None:
     assert extract_answer([HumanMessage(content="问")]) == ""
+
+
+def test_traceability_requires_law_and_number_pair() -> None:
+    """同一批材料里有《甲法》第 38 条，回答引《乙法》第 38 条 → 不算可溯源。"""
+    from legalqa.eval import check_traceability
+
+    # 甲法在批内（提供了第 38 条），乙法也在批内（提供了第 44 条）；
+    # 回答引的乙法第 38 条却根本没检索到 —— 只有成对判断才能发现。
+    docs = [{"law_name": "甲法", "article_no": 38},
+            {"law_name": "乙法", "article_no": 44}]
+    result = check_traceability("依据《乙法》第三十八条。", docs)
+    assert result.passed is False
+    assert "38" in result.detail
+
+
+def test_traceability_accepts_matching_pair() -> None:
+    from legalqa.eval import check_traceability
+
+    docs = [{"law_name": "中华人民共和国劳动合同法", "article_no": 38}]
+    assert check_traceability("依据《劳动合同法》第三十八条。", docs).passed is True
+
+
+def test_strip_backfill_appendix_removes_quoted_statute() -> None:
+    """附录里是法条原文，其中的交叉引用不算模型的引用行为。"""
+    from legalqa.eval import strip_backfill_appendix
+
+    text = (
+        "依据《劳动合同法》第四十六条，单位应支付补偿。\n\n"
+        "本回答仅供参考，不构成正式法律意见。\n\n"
+        "【补充核对】回答中引用的以下条文不在本次检索结果里：\n"
+        "- 《中华人民共和国劳动合同法》第四十六条（现行有效）：有下列情形之一的……"
+        "（一）劳动者依照本法第三十八条规定解除劳动合同的；（二）用人单位依照本法"
+        "第三十六条规定……\n\n"
+        "本回答仅供参考，不构成正式法律意见。"
+    )
+    body = strip_backfill_appendix(text)
+    assert "第三十八条" not in body
+    assert "第三十六条" not in body
+    assert "第四十六条" in body          # 模型自己写的那句要保留
+    assert "本回答仅供参考" in body       # 免责声明不能被切掉
+
+
+def test_strip_backfill_appendix_keeps_warning() -> None:
+    """附录之后的【引用提示】是系统输出，必须保留。"""
+    from legalqa.eval import strip_backfill_appendix
+
+    text = (
+        "正文。\n\n【补充核对】……原文里的第三十八条……\n\n"
+        "【引用提示】以下条号在法条库中查不到：第999条\n\n本回答仅供参考，不构成正式法律意见。"
+    )
+    body = strip_backfill_appendix(text)
+    assert "第三十八条" not in body
+    assert "第999条" in body
+
+
+def test_strip_backfill_appendix_passthrough() -> None:
+    from legalqa.eval import strip_backfill_appendix
+
+    assert strip_backfill_appendix("普通回答") == "普通回答"
+    assert strip_backfill_appendix("") == ""

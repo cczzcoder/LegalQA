@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -25,6 +25,7 @@ from legalqa.state import LegalState
 __all__ = [
     "input_guard_node",
     "output_guard_node",
+    "make_output_guard_node",
     "extract_text",
     "is_unsafe_promise",
     "reset_turn_fields",
@@ -183,12 +184,77 @@ def is_unsafe_promise(text: str) -> bool:
     return any(pattern in text for pattern in UNSAFE_OUTPUT_PATTERNS)
 
 
-def output_guard_node(state: LegalState) -> dict[str, Any]:
+# 回捞条文的展示上限。回答总长受 MAX_ANSWER_CHARS 约束（2500 字），
+# 附录不能把正文挤没，所以限条数 + 限单条长度 + 限总长。
+_BACKFILL_MAX_ITEMS = 3
+_BACKFILL_ITEM_CHARS = 160
+_BACKFILL_TOTAL_CHARS = 600
+
+
+def _render_backfill(docs: Sequence[dict[str, Any]]) -> str:
+    """把回捞到的条文渲染成附录。空列表返回空串（不产生任何多余文本）。"""
+    if not docs:
+        return ""
+    from legalqa.tools.read_tool import describe_validity   # 局部导入，避免模块级耦合
+
+    lines: list[str] = []
+    used = 0
+    for doc in docs[:_BACKFILL_MAX_ITEMS]:
+        body = str(doc.get("text", "") or "").strip()
+        if len(body) > _BACKFILL_ITEM_CHARS:
+            body = body[:_BACKFILL_ITEM_CHARS] + "……"
+        label = doc.get("article_label") or f"第{doc.get('article_no', '?')}条"
+        line = f"- 《{doc.get('law_name', '')}》{label}（{describe_validity(doc)}）：{body}"
+        if used + len(line) > _BACKFILL_TOTAL_CHARS:
+            break
+        lines.append(line)
+        used += len(line)
+    if not lines:
+        return ""
+    return (
+        "\n\n【补充核对】回答中引用的以下条文不在本次检索结果里，"
+        "已按条号回查法条库确认存在：\n" + "\n".join(lines)
+    )
+
+
+def _merge_docs(
+    docs: Sequence[dict[str, Any]], extra: Sequence[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """合并检索材料与回捞条文，按 id 去重，保留原顺序。"""
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for doc in [*docs, *extra]:
+        key = str(doc.get("id", "")) or f"{doc.get('law_name')}#{doc.get('article_no')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(dict(doc))
+    return merged
+
+
+def make_output_guard_node(index: Any = None):
+    """把法条索引注入 OutputGuard，供「引用回捞」使用。
+
+    LangGraph 节点签名只接受 state，索引必须走闭包注入 —— 与
+    `make_context_compress_node(llm)` 同一套做法。
+    """
+
+    def node(state: LegalState) -> dict[str, Any]:
+        return output_guard_node(state, index)
+
+    return node
+
+
+def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
     """检查生成内容，必要时**原地改写**最后一条 AIMessage。
 
     检查顺序：
+      0. 悬空 tool_calls → 剥掉（否则会留下空白回答 + 污染下一轮）
       1. 胜诉承诺类表述 → 整条替换为安全文案（不是删掉，删掉会让历史出现空洞）
-      2. 缺免责声明 → 追加
+      2. 引用核实 → 不在本批材料里的条号回查法条库，查不到/已废止才警示
+      3. 缺免责声明 → 追加
+
+    `index` 为 None 时（单测、无索引场景）退化为「不在本批材料即未溯源」。
     """
     trace = state.with_trace("output_guard")
     base: dict[str, Any] = {"trace": trace, "last_node": "output_guard"}
@@ -197,14 +263,25 @@ def output_guard_node(state: LegalState) -> dict[str, Any]:
     if not messages:
         return {**base, "output_blocked": False, "output_reason": "no_message"}
 
-    # 只处理「最终回答」：必须是最后一条、是 AIMessage、且不带 tool_calls。
-    # 循环中途的 AIMessage(tool_calls) 内容为空，给它加免责声明会造出
-    # 一条「既要求调工具、又带正文」的畸形消息。
+    # 只处理「最终回答」：必须是最后一条、是 AIMessage。
     target = messages[-1]
     if not isinstance(target, AIMessage):
         return {**base, "output_blocked": False, "output_reason": "not_final_answer"}
-    if getattr(target, "tool_calls", None):
-        return {**base, "output_blocked": False, "output_reason": "tool_call_message"}
+
+    # 走到这里说明本轮已经结束，这条消息上的 tool_calls **不可能再被执行**。
+    # 留着它有两个后果（E13 实测）：
+    #   ① 模型第二轮的这条消息正文为空 → 用户收到 0 字回答，免责声明也无处可加；
+    #   ② 历史里出现「悬空 tool_calls」（没有对应 ToolMessage），下一轮喂回模型
+    #      会被它当成「上一轮没做完的事」，反复重试同一个检索。
+    # 所以剥掉 tool_calls；正文为空时用 unfinished 文案顶上，宁可少说也不给空白。
+    dangling = bool(getattr(target, "tool_calls", None))
+    if dangling:
+        body = extract_text(target)
+        if not body:
+            body = config.FALLBACK_TEXTS["unfinished"]
+        target = target.model_copy(
+            update={"content": body, "tool_calls": [], "invalid_tool_calls": []}
+        )
 
     text = extract_text(target)
 
@@ -217,34 +294,139 @@ def output_guard_node(state: LegalState) -> dict[str, Any]:
             "output_reason": "unsafe_promise",
         }
 
-    # ---- 引用溯源：回答里引的条号必须在检索材料里 ----
+    # ---- 引用溯源 ----
     # 实测 7B 模型会一边看着「第 35/38/47 条」，一边引用记忆里的「第 51/53 条」。
     # 内容可能碰巧正确，但无法用检索材料验证 —— 这正是法律场景不能接受的。
-    # 不整条替换（会丢掉有用内容），只在末尾追加警示并标记。
-    docs = state.get("retrieved_docs") or []
+    #
+    # **只警示是不够的（E13）。** 100 条评测里有 13~15 条「引对了条号、
+    # 只是那条没被 top-6 召回」，旧实现一律打上「无法溯源」——这不是模型的错，
+    # 是系统没去核实。法条库就在本地，按 (法律名, 条号) 回查就能确定真假：
+    #   查到且现行有效 → 真实条文，把原文附在回答末尾，用户可自行核对
+    #   查到但已废止   → 时效问题，必须警示（引用废止条文比不引更危险）
+    #   查不到         → 编造，必须警示
+    docs = list(state.get("retrieved_docs") or [])
     allowed_nos = {
         doc.get("article_no") for doc in docs if isinstance(doc.get("article_no"), int)
     }
     allowed_laws = {str(doc.get("law_name", "")) for doc in docs if doc.get("law_name")}
+    # 「这一条在材料里」必须按 (法律名, 条号) 成对判断，见下面的反例说明
+    allowed_pairs = {
+        (str(doc.get("law_name", "")), int(doc.get("article_no")))
+        for doc in docs
+        if isinstance(doc.get("article_no"), int) and doc.get("law_name")
+    }
+    # 有序的法源列表（按检索相关度），用于「承前省略法律名」时限定解析范围。
+    # 用 list 而不是 set：解析结果必须可复现，set 的遍历顺序不稳定。
+    batch_laws: list[str] = []
+    for doc in docs:
+        name = str(doc.get("law_name", "") or "")
+        if name and name not in batch_laws:
+            batch_laws.append(name)
 
     unverified: set[int] = set()
     external: set[str] = set()
-    if allowed_nos:
+    repealed: set[str] = set()
+    ambiguous: set[int] = set()
+    # 本回答内已解析过的条号 → 法律名。模型通常先写「《劳动合同法》第四十六条」，
+    # 后文直接写「第46条」；没有这张表，后一次会因为条号跨法重复被判成「不存在」——
+    # 刚回捞成功的条文转头被指控编造，这是最不能接受的一类误判。
+    resolved: dict[int, str] = {}
+    # 用 dict 而不是 list：模型常在回答里把同一条引两次
+    # （「依据第四十七条……」「按第四十七条计算……」），
+    # 附录里就会出现两条一模一样的条文，既浪费字数又显得系统很蠢。
+    backfilled: dict[tuple[str, int], dict[str, Any]] = {}
+
+    # 有本批材料、或者有索引可回查，就做核实。
+    # 旧实现在 `allowed_nos` 为空时**整个跳过**——零检索、纯凭记忆作答的回答
+    # 反而免检，正是最该查的一种。有索引就不存在「没法查」这个借口。
+    if allowed_nos or index is not None:
         for law, number in extract_citations(text):
-            # 引了语料库之外的法律（如《刑法》第 245 条）——不算「未溯源」，
-            # 因为本次检索根本不覆盖该法源，提示应区分开。
-            if law and allowed_laws and not any(same_law(law, known) for known in allowed_laws):
+            cited_law_in_batch = bool(law) and any(
+                same_law(law, known) for known in allowed_laws
+            )
+            # ① 本批材料里**就是这一条** → 天然可溯源。
+            # 必须比对 (法律名, 条号) 这个**对**，不能分开比。
+            # 反例（实测 labor-006）：本批有《劳动法》第 38 条、《劳动合同法》第 44 条，
+            # 模型引《劳动合同法》第 38 条 ——「38 在条号集合里」成立、
+            # 「劳动合同法在法源集合里」也成立，但这一条根本没被检索到。
+            if law is None:
+                if number in allowed_nos:
+                    continue
+            elif any(same_law(law, name) and no == number for name, no in allowed_pairs):
+                continue
+
+            # ② 回查法条库。认不出法律名时只在条号全局唯一时才认，
+            #    否则「第一条」会命中随便哪部法（BC-24 同一个坑）。
+            known_law: str | None = None
+            law_in_corpus = False
+            if law and index is not None:
+                known_law = next((n for n in index.law_names if same_law(law, n)), None)
+                law_in_corpus = known_law is not None
+
+            # ③ 语料库里根本没有这部法律（如《刑法》）→ 超出知识库，不算未溯源
+            if index is not None and law and not law_in_corpus:
                 external.add(f"《{law}》第{number}条")
                 continue
-            if number not in allowed_nos:
-                unverified.add(number)
 
-    if unverified or external:
+            doc = index.by_article(number, known_law) if index is not None else None
+
+            # ④ 承前省略法律名 + 条号跨法重复（「第 36 条」在 20 部法里都有）：
+            #    `by_article` 因歧义返回 None。按两个层次解析：
+            #    a. 本回答前面已经解析过这个条号 → 沿用（模型最常这样写）
+            #    b. 本轮材料限定的法源里**唯一**命中 → 认
+            #    都不行就是真歧义：不能判「不存在」（它明明存在），
+            #    也不能随便挑一部（法律场景挑错法源比不答更糟）。
+            if doc is None and index is not None and law is None:
+                if number in resolved:
+                    doc = index.by_article(number, resolved[number])
+                elif batch_laws:
+                    hits = [
+                        d for d in (index.by_article(number, name) for name in batch_laws)
+                        if d is not None
+                    ]
+                    if len(hits) == 1:
+                        doc = hits[0]
+                    elif len(hits) > 1:
+                        ambiguous.add(number)
+                        continue
+
+            if doc is None:
+                # 没有索引（单测）时保持旧行为：不在本批就是未溯源
+                if index is None and law and allowed_laws and not cited_law_in_batch:
+                    external.add(f"《{law}》第{number}条")
+                else:
+                    unverified.add(number)
+                continue
+
+            if doc.get("is_valid", True):
+                key = (str(doc.get("law_name", "")), int(doc.get("article_no") or number))
+                backfilled.setdefault(key, doc)
+                resolved[number] = key[0]
+            else:
+                label = doc.get("article_label") or f"第{number}条"
+                repealed.add(f"《{doc.get('law_name', '')}》{label}")
+
+    if unverified or external or repealed or ambiguous:
         parts = []
         if unverified:
+            # 措辞必须与「是否真的查过」一致：有索引是「查不到，可能不存在」，
+            # 没索引只是「不在这一批里」。说错话比不说更糟。
+            if index is not None:
+                parts.append(
+                    "以下条号在法条库中查不到，可能不存在，请自行核实："
+                    + "、".join(f"第{n}条" for n in sorted(unverified))
+                )
+            else:
+                parts.append(
+                    "以下条号未出现在本次检索结果中，无法溯源，请自行核实："
+                    + "、".join(f"第{n}条" for n in sorted(unverified))
+                )
+        if repealed:
+            parts.append("以下条文已废止，不能作为现行依据：" + "、".join(sorted(repealed)))
+        if ambiguous:
             parts.append(
-                "以下条号未出现在本次检索结果中，无法溯源，请自行核实："
-                + "、".join(f"第{n}条" for n in sorted(unverified))
+                "以下条号在多部法律中都有，回答未注明法律名，无法确定具体条文："
+                + "、".join(f"第{n}条" for n in sorted(ambiguous))
             )
         if external:
             parts.append(
@@ -252,14 +434,30 @@ def output_guard_node(state: LegalState) -> dict[str, Any]:
                 + "、".join(sorted(external))
             )
         warning = "\n\n【引用提示】" + "；".join(parts)
-        content = text + warning
+        content = text + _render_backfill(list(backfilled.values())) + warning
+        if DISCLAIMER not in content:
+            content += f"\n\n{DISCLAIMER}"
+        merged = _merge_docs(docs, list(backfilled.values()))
+        return {
+            **base,
+            "messages": [target.model_copy(update={"content": content})],
+            "retrieved_docs": merged,
+            "output_blocked": True,
+            "output_reason": "unverified_citation",
+        }
+
+    if backfilled:
+        # 全部引用都核实通过，只是有几条是回捞来的 —— 把原文补进回答，
+        # 并记进 retrieved_docs，让「本轮用到的材料」与实际回答一致。
+        content = text + _render_backfill(list(backfilled.values()))
         if DISCLAIMER not in content:
             content += f"\n\n{DISCLAIMER}"
         return {
             **base,
             "messages": [target.model_copy(update={"content": content})],
-            "output_blocked": True,
-            "output_reason": "unverified_citation",
+            "retrieved_docs": _merge_docs(docs, list(backfilled.values())),
+            "output_blocked": False,
+            "output_reason": "citation_backfilled",
         }
 
     if DISCLAIMER not in text:
@@ -269,6 +467,16 @@ def output_guard_node(state: LegalState) -> dict[str, Any]:
             "messages": [appended],
             "output_blocked": False,
             "output_reason": "disclaimer_added",
+        }
+
+    if dangling:
+        # 剥掉 tool_calls 这件事本身就是一次改写，必须写回 state，
+        # 否则悬空 tool_calls 会留在历史里污染下一轮。
+        return {
+            **base,
+            "messages": [target],
+            "output_blocked": True,
+            "output_reason": "dangling_tool_call",
         }
 
     return {**base, "output_blocked": False, "output_reason": ""}

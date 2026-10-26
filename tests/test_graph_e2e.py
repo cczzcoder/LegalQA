@@ -291,14 +291,92 @@ def test_route_after_agent_order() -> None:
     ) == "end"
     assert route_after_agent(LegalState(messages=[AIMessage(content="答")])) == "end"
     assert route_after_agent(LegalState(messages=[])) == "end"
+    # 次数超限但模型还想调工具：回 answer 再生成一次，**不能**直接 end。
+    # 直接 end 会让最后一条消息停在「content='' + tool_calls」上 → 用户看到 0 字回答。
     assert route_after_agent(
         LegalState(
             messages=[call_msg],
             iteration_count=1,
             tool_call_history=["a"] * config.MAX_TOOL_CALLS,
         )
-    ) == "end"
+    ) == "answer"
     assert route_after_agent(LegalState(messages=[call_msg], iteration_count=1)) == "tools"
+
+
+# ---------------------------------------------------------------------------
+# E13 回归：循环不得终止在「带 tool_calls 的消息」上
+# ---------------------------------------------------------------------------
+def multi_call_message(count: int, content: str = "", msg_id: str = "ai-multi") -> AIMessage:
+    return AIMessage(
+        id=msg_id,
+        content=content,
+        tool_calls=[
+            {"id": f"c{i}", "name": "read_law", "args": {"query": f"第{i}条"}}
+            for i in range(count)
+        ],
+    )
+
+
+def test_loop_never_ends_on_tool_call_message() -> None:
+    """一次发多个 tool_calls 越过上限，下一轮还想调 → 必须仍然产出正文。
+
+    真实事故（s100-043）：模型把「怎么算排放量 / 交多少配额 / 找谁办」
+    拆成 3 个检索一次发完，`tool_call_history` 直接到 3（上限 2）。
+    第二轮它还想再查 3 次，旧逻辑判「次数超限」直接 end，
+    最后一条消息 content 为空、带 tool_calls，用户收到**空白回答**。
+    """
+    llm = MockChatModel(
+        script=[
+            multi_call_message(3, msg_id="ai-1"),   # 第一批就超额
+            multi_call_message(3, msg_id="ai-2"),   # 第二轮仍想检索
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=make_tool())
+    state = run_turn(app, "我家工厂被列进重点排放单位名单了，怎么算排放量、交多少配额、找谁办")
+
+    final = state.messages[-1]
+    assert isinstance(final, AIMessage)
+    assert not getattr(final, "tool_calls", None), "最终回答不允许残留 tool_calls"
+    assert final.content.strip(), "最终回答不允许为空"
+    assert DISCLAIMER in final.content
+
+
+def test_duplicate_message_id_does_not_swallow_answer() -> None:
+    """模型复用历史里已有的 id 时，新回答不能被 `add_messages` 当成 update 吞掉。
+
+    `add_messages` 对相同 id 执行 **update**：第二轮回答会顶掉第一轮那条消息的
+    位置，于是 `messages[-1]` 变成 ToolMessage，OutputGuard 判「不是最终回答」
+    直接跳过 —— 用户又收到空白。少数网关会把请求里的 id 回显进响应，这会真实发生。
+    """
+    llm = MockChatModel(
+        script=[
+            multi_call_message(3, msg_id="ai-same"),
+            multi_call_message(3, msg_id="ai-same"),
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=make_tool())
+    state = run_turn(app, "多方面的复杂问题")
+
+    assert isinstance(state.messages[-1], AIMessage)
+    assert state.messages[-1].content.strip()
+    assert DISCLAIMER in state.messages[-1].content
+
+
+def test_tools_unbound_when_tool_budget_exhausted() -> None:
+    """工具预算用尽后必须**物理上**不再绑工具，而不是靠模型自觉。"""
+    llm = MockChatModel(
+        script=[
+            multi_call_message(3, msg_id="ai-1"),
+            AIMessage(id="a2", content=f"最终结论。\n\n{DISCLAIMER}"),
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=make_tool())
+    state = run_turn(app, "多方面的复杂问题")
+
+    # 只有第一轮绑了工具；第二轮因为累计调用数已超上限，根本没调 bind_tools
+    assert len(llm.bound_tool_names) == 1
+    assert state.messages[-1].content.strip()
+    assert DISCLAIMER in state.messages[-1].content
 
 
 # ---------------------------------------------------------------------------

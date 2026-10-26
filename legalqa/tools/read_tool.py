@@ -164,6 +164,11 @@ class ReadTool:
         self._reranker = reranker
 
     # -- 内部 ---------------------------------------------------------
+    @property
+    def index(self) -> VectorIndex:
+        """暴露索引，供 OutputGuard 做「引用回捞」（按条号回查语料库）。"""
+        return self._index
+
     def _resolve_query(
         self, query: str, history: Sequence[AnyMessage] | None
     ) -> tuple[str, bool, str]:

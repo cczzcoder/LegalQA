@@ -91,7 +91,18 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
         # 强制它输出最终答案 —— 这样「最多 2 轮检索 + 1 轮作答」，
         # 与 route_after_agent 的 `iteration >= MAX_ITER -> end` 完全一致。
         # 两处判据必须同步，否则会出现「预算已耗尽但仍放行到 ToolNode」（BC-44）。
-        over_budget = iteration >= config.MAX_ITER
+        iteration_exhausted = iteration >= config.MAX_ITER
+        # **工具预算用尽也必须解绑工具**（E13）。
+        # 只按 iteration 判定会漏掉一条致命路径：模型第一轮一次发 3 个 tool_calls，
+        # `tool_call_history` 直接到 3（上限 2），第二轮它还想再查 3 次，
+        # 路由判到「次数超限」结束循环，最后一条消息是 content 为空、
+        # 带 tool_calls 的 AIMessage —— 用户收到**0 字回答**，免责声明也无处可加。
+        # 判据用「已执行次数」而不是「本轮调用数」：一批里多发几个是允许的，
+        # 但一旦累计到上限，下一次调用就物理上不给工具。
+        tool_budget_exhausted = (
+            len(state.get("tool_call_history") or []) >= config.MAX_TOOL_CALLS
+        )
+        over_budget = iteration_exhausted or tool_budget_exhausted
         messages = list(state.get("llm_messages") or [])
         trace = state.with_trace("agent", f"iter={iteration}")
 
@@ -140,6 +151,18 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
 
         if not isinstance(response, AIMessage):
             response = AIMessage(content=str(getattr(response, "content", "") or ""))
+
+        # **模型可能复用历史里已有的 id**（少数网关把请求里的 id 回显进响应）。
+        # `add_messages` 对相同 id 执行的是 update 而不是追加：新回答会顶掉那条旧
+        # 消息的位置，最后一条于是成了 ToolMessage —— OutputGuard 判「不是最终回答」
+        # 直接跳过，用户又收到空白回答。Agent 产出的永远是**新**消息，强制换 id。
+        used_ids = {
+            m.id for m in (state.get("messages") or []) if getattr(m, "id", None)
+        }
+        if not response.id or response.id in used_ids:
+            response = response.model_copy(
+                update={"id": f"ai-{state.get('turn_id', 0)}-{iteration}"}
+            )
 
         tool_calls = list(getattr(response, "tool_calls", None) or [])
 

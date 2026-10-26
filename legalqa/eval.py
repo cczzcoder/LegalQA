@@ -34,6 +34,8 @@ __all__ = [
     "check_refusal",
     "check_keywords",
     "check_expected_citation",
+    "extract_answer",
+    "strip_backfill_appendix",
 ]
 
 # 答案长度合理区间。太短说明敷衍，太长说明没抓住重点。
@@ -63,6 +65,10 @@ class CaseReport:
     iterations: int = 0
     channel: str = ""
     score: float = 0.0
+    # 留证据。没有这两项，任何一次「为什么失败」都得重跑 6 分钟评测才能看，
+    # 而重跑的结果和上一次不完全一样（并发 + 网络），根本没法逐条比对。
+    answer: str = ""
+    retrieved: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -91,21 +97,35 @@ def check_length(text: str) -> CheckResult:
 
 
 def check_traceability(text: str, docs: Sequence[dict[str, Any]]) -> CheckResult:
-    """引用的条号是否都能在本次检索材料里找到。"""
-    allowed_nos = {
-        d.get("article_no") for d in docs if isinstance(d.get("article_no"), int)
+    """引用的条号是否都能在本次检索材料里找到。
+
+    **必须按 (法律名, 条号) 成对判断。** 分开比会放过一类真实错误：
+    材料里有《劳动法》第 38 条、《劳动合同法》第 44 条，回答引《劳动合同法》
+    第 38 条——「38 在条号集合里」和「劳动合同法在法源集合里」都成立，
+    但这一条压根没检索到。实测 labor-006 就是这么漏过去的。
+    """
+    allowed_pairs = {
+        (str(d.get("law_name", "")), int(d.get("article_no")))
+        for d in docs
+        if isinstance(d.get("article_no"), int) and d.get("law_name")
     }
-    allowed_laws = {str(d.get("law_name", "")) for d in docs if d.get("law_name")}
-    if not allowed_nos:
+    if not allowed_pairs:
         return CheckResult("引用可溯源", True, "无检索材料，跳过")
+    allowed_nos = {no for _, no in allowed_pairs}
+    allowed_laws = {name for name, _ in allowed_pairs}
 
     # 按条号去重：同一部法律在回答里可能写成「劳动合同法」「中华人民共和国劳动合同法」
     # 两种形式，按字符串去重会重复列出。
     unverified: set[int] = set()
     for law, number in extract_citations(text):
-        if law and allowed_laws and not any(same_law(law, k) for k in allowed_laws):
-            continue                       # 语料外法律，不归此项管
-        if number not in allowed_nos:
+        if law and not any(same_law(law, k) for k in allowed_laws):
+            continue                       # 本批材料之外的法律，不归此项管
+        if law is None:
+            # 承前省略法律名：只看条号，放宽（否则「依据第四十七条」会大面积误报）
+            if number not in allowed_nos:
+                unverified.add(number)
+            continue
+        if not any(same_law(law, name) and no == number for name, no in allowed_pairs):
             unverified.add(number)
     if unverified:
         shown = "、".join(f"第{n}条" for n in sorted(unverified)[:5])
@@ -206,3 +226,33 @@ def extract_answer(messages: Sequence[Any]) -> str:
         if isinstance(message, AIMessage):
             return str(message.content)
     return ""
+
+
+# 引用回捞附录的起始标记（与 guards._render_backfill 对应）
+_BACKFILL_MARK = "【补充核对】"
+_WARNING_MARK = "【引用提示】"
+
+
+def strip_backfill_appendix(text: str) -> str:
+    """去掉「【补充核对】」附录，只保留模型自己写的正文。
+
+    **附录里是法条原文，不能当作模型的引用行为。** 实测 labor-006：
+    回捞的《劳动合同法》第四十六条原文里写着「（一）劳动者依照本法第三十八条
+    规定解除劳动合同的……」——评测把这几处交叉引用当成了模型引的条号，
+    于是判「第36/38/40/41 条未溯源」。系统因为忠实引用原文而被扣分。
+
+    更危险的是反方向：`check_expected_citation` 可能在附录原文里碰巧撞上
+    期望条号，让一条**没引对**的回答被判成通过。两个方向都必须切掉附录。
+
+    保留附录之后的【引用提示】和免责声明——那是系统的输出，不是法条原文。
+    """
+    if not text:
+        return ""
+    start = text.find(_BACKFILL_MARK)
+    if start < 0:
+        return text
+    warn = text.find(_WARNING_MARK, start)
+    if warn >= 0:
+        return text[:start] + text[warn:]
+    disclaimer = text.find(DISCLAIMER, start)
+    return text[:start] + (text[disclaimer:] if disclaimer >= 0 else "")
