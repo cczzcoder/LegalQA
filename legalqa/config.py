@@ -158,6 +158,9 @@ RAG_TOP_K: Final[int] = 6               # 进 prompt 的条数
 # 模型会引用相关但未进 top-4 的条文（如「违法解除赔偿」需要第 47 条计算标准）。
 RAG_RECALL_K: Final[int] = 20           # 语义通道召回条数
 RAG_TIMEOUT_S: Final[float] = 2.0
+# 用户原问题补召回的门槛：只有用户 query 的 top1 原始余弦明显高于模型
+# 自己写的 query 时才补。无条件补会在模型 query 更好时稀释上下文（E16 实测）。
+SUPPLEMENT_SCORE_MARGIN: Final[float] = 0.02
 EMBEDDING_DIM: Final[int] = 512         # bge-small-zh-v1.5
 
 # 融合分权重（§6.4.4）

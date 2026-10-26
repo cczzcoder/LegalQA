@@ -389,7 +389,8 @@ def test_tool_node_supplements_user_query() -> None:
                 "article_label": f"第{no}条", "text": f"第{no}条正文",
                 "is_valid": True, "effective_date": "2020-01-01",
             }
-            result = ToolResult(docs=[doc], score=0.8, channel="dense", query=query)
+            score = 0.8 if query == "模型查询" else 0.9
+            result = ToolResult(docs=[doc], score=score, channel="dense", query=query)
             result.message = format_context(result)
             return result
 
@@ -411,3 +412,45 @@ def test_tool_node_supplements_user_query() -> None:
     assert "第1条正文" in content
     assert "第2条正文" in content
     assert {d["article_no"] for d in out["retrieved_docs"]} == {1, 2}
+
+
+def test_tool_node_skips_supplement_when_user_query_is_worse() -> None:
+    """用户原问题得分没有明显更高时不补，避免稀释模型自己的 query。"""
+    from langchain_core.messages import AIMessage
+
+    from legalqa.nodes.agent import make_tool_node
+    from legalqa.state import LegalState
+
+    class FakeTool:
+        name = "read_law"
+
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def run(self, query: str, history=None) -> ToolResult:
+            self.queries.append(query)
+            score = 0.8 if query == "模型查询" else 0.7
+            doc = {
+                "id": query, "law_name": "X法", "article_no": 1,
+                "article_label": "第一条", "text": "正文",
+                "is_valid": True, "effective_date": "2020-01-01",
+            }
+            result = ToolResult(docs=[doc], score=score, channel="dense", query=query)
+            result.message = format_context(result)
+            return result
+
+    tool = FakeTool()
+    state = LegalState(
+        messages=[
+            AIMessage(
+                id="a1",
+                content="",
+                tool_calls=[{"id": "c1", "name": "read_law", "args": {"query": "模型查询"}}],
+            )
+        ],
+        user_query="用户原问题",
+    )
+    out = make_tool_node(tool, supplement_user_query=True)(state)
+
+    assert tool.queries == ["模型查询", "用户原问题"]
+    assert len(out["retrieved_docs"]) == 1

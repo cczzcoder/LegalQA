@@ -287,7 +287,13 @@ def make_tool_node(
                 if user_query and user_query != query.strip():
                     try:
                         user_result = read_tool.run(user_query, messages)
-                        result = supplement_with_user_query(result, user_result)
+                        # 只有用户原问题明显更相关时才补；否则模型自己写的
+                        # query 通常更懂法言法语，补进来只会稀释上下文。
+                        if (
+                            user_result.score
+                            > result.score + config.SUPPLEMENT_SCORE_MARGIN
+                        ):
+                            result = supplement_with_user_query(result, user_result)
                     except Exception:
                         pass
 
