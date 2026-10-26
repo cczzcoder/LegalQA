@@ -194,7 +194,9 @@ def build_interrupted_state(
 
     payload["messages"] = messages
     payload["turn_id"] = turn_id
-    payload["degraded"] = True
+    # 用 interrupted 而不是 degraded：中断是用户主动行为，不是系统降级，
+    # 混在一起会让「降级率」指标失真。
+    payload["interrupted"] = True
     return LegalState(**payload)
 
 
@@ -347,6 +349,7 @@ def main(argv: list[str] | None = None) -> int:
 
         partial: list[str] = []
         final: dict[str, Any] | None = None
+        shown_tools: set[str] = set()
         print()
         try:
             for mode, chunk in app.stream(payload, stream_mode=["messages", "values"]):
@@ -359,7 +362,15 @@ def main(argv: list[str] | None = None) -> int:
                             partial.append(content)
                             print(content, end="", flush=True)
                     elif node == "tool_node":
-                        print("  [检索中…]", end="", flush=True)
+                        # 进入工具节点说明上一段 agent 输出是中间产物
+                        # （「我来查一下」这类），不是最终回答。清掉它，
+                        # 否则后面比较「流式文本 vs 最终回答」时会误判成
+                        # 「回答被输出护栏修正」。
+                        partial.clear()
+                        call_id = str(getattr(message, "tool_call_id", "") or "")
+                        if call_id and call_id not in shown_tools:
+                            shown_tools.add(call_id)
+                            print("  [检索中…]", end="", flush=True)
                 elif mode == "values":
                     final = chunk
         except KeyboardInterrupt:

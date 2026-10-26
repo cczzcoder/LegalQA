@@ -51,9 +51,44 @@ def test_interrupted_state_without_partial_text() -> None:
     assert isinstance(state.messages[0], HumanMessage)
 
 
-def test_interrupted_state_marked_degraded() -> None:
+def test_interrupted_state_marked_interrupted() -> None:
+    """中断用独立字段，不混进 degraded。
+
+    中断是用户主动行为，不是系统故障。混在一起会让「降级率」指标失真。
+    """
     state = build_interrupted_state(None, "问题", "半截", 0)
-    assert state.degraded is True
+    assert state.interrupted is True
+    assert state.degraded is False
+
+
+def test_interrupt_note_goes_before_user_question() -> None:
+    """提示必须插在用户提问**之前**。
+
+    追加到末尾的话，模型收到的最后一句是系统提示，用户问题被挤到中间——
+    模型会先回应提示（「好的我立即作答」）而不是回答实际问题。
+    """
+    import sys
+
+    sys.path.insert(0, "tests")
+    from test_graph_e2e import MockChatModel
+
+    from legalqa.nodes.agent import make_agent_node
+
+    llm = MockChatModel(script=[AIMessage(id="a2", content="答")])
+    node = make_agent_node(llm)
+    interrupted = AIMessage(
+        id="a1", content="半截", additional_kwargs={"interrupted": True}
+    )
+    window = [
+        HumanMessage(id="h1", content="原问题"),
+        interrupted,
+        HumanMessage(id="h2", content="补充：三个月"),
+    ]
+    node(LegalState(messages=window, llm_messages=window))
+
+    seen = llm.seen_messages[-1]
+    assert "中途打断" in str(seen[-2].content), "提示应在倒数第二条"
+    assert str(seen[-1].content) == "补充：三个月", "最后一条必须是用户提问"
 
 
 def test_interrupted_message_id_is_unique() -> None:

@@ -21,6 +21,7 @@ from typing import Any, Callable, Sequence
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
 
 from legalqa import config
+from legalqa.pure.window import insert_before_last_human
 from legalqa.state import LegalState
 from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool, ToolResult
 
@@ -106,22 +107,18 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
 
         # 上一轮被用户打断：把半截回答标记出来，避免模型当它是完整结论
         if last_ai_was_interrupted(messages):
-            messages = [*messages, HumanMessage(content=INTERRUPT_NOTE)]
+            messages = insert_before_last_human(messages, INTERRUPT_NOTE)
 
         # 超预算时不绑工具，并明确告知「不能再检索」。
         # 否则模型会输出「再检索一下工伤认定程序……」这种半句话 —— 它想调工具
         # 但工具已经没了，于是把意图写进正文，用户看到一条没头没尾的回答。
         if over_budget:
-            messages = [
-                *messages,
-                HumanMessage(
-                    content=(
-                        "【系统提示】检索次数已用尽，不能再调用任何工具。"
-                        "请立即基于以上已有材料给出最终回答；"
-                        "材料不足的部分直接说明「现有资料未涵盖」，不要描述你打算做什么。"
-                    )
-                ),
-            ]
+            messages = insert_before_last_human(
+                messages,
+                "【系统提示】检索次数已用尽，不能再调用任何工具。"
+                "请立即基于以上已有材料给出最终回答；"
+                "材料不足的部分直接说明「现有资料未涵盖」，不要描述你打算做什么。",
+            )
 
         try:
             target = llm

@@ -32,6 +32,7 @@ from legalqa import config
 
 __all__ = [
     "last_human",
+    "insert_before_last_human",
     "repair_tool_pairs",
     "restore_current_query",
     "pairs_ok",
@@ -74,6 +75,22 @@ def is_empty_ai(message: AnyMessage) -> bool:
     if isinstance(content, str):
         return not content.strip()
     return not content
+
+
+def insert_before_last_human(
+    messages: Sequence[AnyMessage], note: str
+) -> list[AnyMessage]:
+    """把一条系统提示插到**最后一条用户提问之前**。
+
+    为什么不直接追加到末尾：追加后模型收到的最后一句是「系统提示」，
+    用户的问题被挤到中间。模型要么先回应提示（「好的，我立即作答」），
+    要么把它当成新的用户输入。提示应该出现在问题之前，而不是之后。
+    """
+    items = list(messages)
+    for i in range(len(items) - 1, -1, -1):
+        if isinstance(items[i], HumanMessage):
+            return [*items[:i], HumanMessage(content=note), *items[i:]]
+    return [*items, HumanMessage(content=note)]
 
 
 def last_human(messages: Sequence[AnyMessage]) -> HumanMessage | None:

@@ -248,3 +248,23 @@ def test_is_empty_ai() -> None:
     assert not is_empty_ai(AIMessage(content="有内容"))
     assert not is_empty_ai(ai_call("c1"))          # 有 tool_calls 不算空
     assert not is_empty_ai(HumanMessage(content=""))
+
+
+def test_insert_before_last_human() -> None:
+    from legalqa.pure.window import insert_before_last_human
+
+    messages = [
+        HumanMessage(id="h1", content="第一问"),
+        AIMessage(id="a1", content="答"),
+        HumanMessage(id="h2", content="第二问"),
+    ]
+    result = insert_before_last_human(messages, "【提示】")
+    assert [m.content for m in result] == ["第一问", "答", "【提示】", "第二问"]
+    assert isinstance(result[-1], HumanMessage)
+
+
+def test_insert_before_last_human_without_human() -> None:
+    from legalqa.pure.window import insert_before_last_human
+
+    result = insert_before_last_human([AIMessage(content="只有回答")], "【提示】")
+    assert [m.content for m in result] == ["只有回答", "【提示】"]

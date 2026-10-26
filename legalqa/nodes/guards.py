@@ -64,6 +64,7 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     "fallback_text": "",
     "fallback_saved": False,
     "degraded": False,
+    "interrupted": False,
     # 改写
     "rewritten_query": "",
     "rewrite_applied": False,
