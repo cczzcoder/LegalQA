@@ -208,3 +208,30 @@ def test_law_reference_in() -> None:
     # 句子里的「条怎么规定」不是法律名
     assert law_reference_in("X法第2条怎么规定的") is None
     assert law_reference_in("依据第1165条的规定") is None
+
+
+def test_extract_citations_does_not_cross_sentence() -> None:
+    """法律名与条号之间跨句时，不归属。
+
+    实测模型写「《关于确立劳动关系有关事项的通知》第一条规定……。
+    依据《工伤保险条例》第十四条」，早期实现把第十四条归到《通知》名下，
+    溯源时误报「通知第 14 条未检索到」。
+    """
+    from legalqa.pure.retrieval import extract_citations
+
+    text = "《关于确立劳动关系有关事项的通知》第一条规定了认定标准。依据《工伤保险条例》第十四条应当认定工伤。"
+    pairs = extract_citations(text)
+    assert ("关于确立劳动关系有关事项的通知", 1) in pairs
+    assert ("工伤保险条例", 14) in pairs
+    assert ("关于确立劳动关系有关事项的通知", 14) not in pairs
+
+
+def test_extract_citations_same_sentence_multiple_articles() -> None:
+    """同一句内多个条号都归属同一个法律名。"""
+    from legalqa.pure.retrieval import extract_citations
+
+    text = "《工伤保险条例》第十四条、第十七条和第三十七条均有规定。"
+    pairs = extract_citations(text)
+    assert ("工伤保险条例", 14) in pairs
+    assert ("工伤保险条例", 17) in pairs
+    assert ("工伤保险条例", 37) in pairs

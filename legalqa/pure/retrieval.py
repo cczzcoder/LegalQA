@@ -122,10 +122,15 @@ def extract_citations(text: str) -> list[tuple[str | None, int]]:
         pos = match.start()
         law: str | None = None
         for start, name in marks:
-            if start < pos:
-                law = name
-            else:
+            if start >= pos:
                 break
+            # **法律名与条号之间不能跨句**。模型常写
+            # 「《关于确立劳动关系有关事项的通知》第一条规定……。依据《工伤保险条例》
+            # 第十四条」——如果只取「前面最近的《》」，第十四条会被归到《通知》名下，
+            # 溯源时就会误报「通知第 14 条未检索到」。
+            if "。" in text[start:pos]:
+                continue
+            law = name
         number = cn_to_int(match.group(1))
         if number is not None:
             pairs.append((law, number))

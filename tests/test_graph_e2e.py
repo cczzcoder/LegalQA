@@ -442,3 +442,27 @@ def test_cli_dry_run_end_to_end() -> None:
     assert result.returncode == 0, result.stderr[-800:]
     assert "通道=exact" in result.stdout
     assert "本回答仅供参考" in result.stdout, "OutputGuard 应注入免责声明"
+
+
+# ---------------------------------------------------------------------------
+# 回归：多次检索的结果必须累积
+# ---------------------------------------------------------------------------
+def test_multiple_tool_rounds_accumulate_docs() -> None:
+    """两次检索的结果都要留在 retrieved_docs 里。
+
+    `retrieved_docs` 没有 reducer，第二次 tool_node 返回时会覆盖第一次。
+    实测模型检索两次（认定条件 + 待遇标准），最后只剩后一次，
+    引用溯源于是把前一次查到的条文判成「未溯源」。
+    """
+    llm = MockChatModel(
+        script=[
+            tool_call_message("c1", "第一条"),
+            tool_call_message("c2", "第二条"),
+            AIMessage(id="a3", content=f"结论。\n\n{DISCLAIMER}"),
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=make_tool())
+    state = run_turn(app, "两个问题")
+
+    article_nos = {d["article_no"] for d in state.retrieved_docs}
+    assert len(article_nos) >= 2, f"两次检索的结果都应保留，实际 {article_nos}"

@@ -340,23 +340,36 @@ def parse_articles(
     return articles
 
 
+# 名字末尾的序号：「解释（一）」「解释（二）」。司法解释常成组发布，
+# 序号是它们唯一的区别。
+_NAME_SERIAL = re.compile(r"[（(]([一二三四五六七八九十\d]{1,3})[）)]\s*$")
+
+
 def _slug(name: str) -> str:
     """法律名 → id 前缀。
 
     去掉「中华人民共和国」这个共同前缀，得到可读的短名（民法典、劳动合同法）。
-    不转拼音，避免引入分词依赖。前 12 字 + 全名前缀冲突时由调用方检测。
+    不转拼音，避免引入分词依赖。
+
+    **长名必须保留末尾序号**：实测《最高人民法院关于审理劳动争议案件适用法律
+    问题的解释（一）》和（二），截断到 12 字后完全相同，id 会互相覆盖，
+    两份司法解释只剩一份。
     """
     table = {
         "中华人民共和国宪法": "constitution",
     }
     if name in table:
         return table[name]
+
     cleaned = re.sub(r"[^\w\u4e00-\u9fff]+", "", name)
     for prefix in ("中华人民共和国", "中国"):
         if cleaned.startswith(prefix):
             cleaned = cleaned[len(prefix):]
             break
-    return cleaned[:12] or "law"
+
+    serial = _NAME_SERIAL.search(name)
+    tail = f"-{serial.group(1)}" if serial else ""
+    return f"{cleaned[:12] or 'law'}{tail}"
 
 
 # ---------------------------------------------------------------------------

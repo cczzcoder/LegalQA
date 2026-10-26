@@ -18,7 +18,7 @@ import hashlib
 import json
 from typing import Any, Callable, Sequence
 
-from langchain_core.messages import AIMessage, AnyMessage, ToolMessage
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
 
 from legalqa import config
 from legalqa.state import LegalState
@@ -76,6 +76,21 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
                 "trace": trace,
                 "last_node": "agent",
             }
+
+        # 超预算时不绑工具，并明确告知「不能再检索」。
+        # 否则模型会输出「再检索一下工伤认定程序……」这种半句话 —— 它想调工具
+        # 但工具已经没了，于是把意图写进正文，用户看到一条没头没尾的回答。
+        if over_budget:
+            messages = [
+                *messages,
+                HumanMessage(
+                    content=(
+                        "【系统提示】检索次数已用尽，不能再调用任何工具。"
+                        "请立即基于以上已有材料给出最终回答；"
+                        "材料不足的部分直接说明「现有资料未涵盖」，不要描述你打算做什么。"
+                    )
+                ),
+            ]
 
         try:
             target = llm
@@ -152,6 +167,15 @@ def make_tool_node(read_tool: ReadTool) -> Callable[[LegalState], dict]:
         new_results: list[ToolMessage] = []
         executed: list[str] = []
         best: ToolResult | None = None
+        # **累积本轮所有检索结果**，不能只留分数最高的那一次。
+        # 实测：模型检索两次（一次查认定条件、一次查待遇标准），只留 best 的话
+        # 另一次的法律名不在 retrieved_docs 里，OutputGuard 的引用溯源会把
+        # 《工伤保险条例》误判成「知识库之外的法律」。
+        # 把 state 里已有的结果也带上：`retrieved_docs` 没有 reducer，
+        # 第二次 tool_node 返回时会**覆盖**第一次的结果。实测模型检索两次
+        # （认定条件 + 待遇标准），最后 state 里只剩后一次的 4 条，
+        # OutputGuard 的引用溯源于是把前一次查到的条文判成「未溯源」。
+        accumulated: list[dict] = list(state.get("retrieved_docs") or [])
 
         for call in calls:
             name = str(call.get("name", ""))
@@ -200,6 +224,7 @@ def make_tool_node(read_tool: ReadTool) -> Callable[[LegalState], dict]:
                     tool_call_id=call_id,
                 )
             )
+            accumulated.extend(result.docs)
             if best is None or result.score > best.score:
                 best = result
 
@@ -209,9 +234,17 @@ def make_tool_node(read_tool: ReadTool) -> Callable[[LegalState], dict]:
             "tool_call_history": [*history, *executed],
         }
         if best is not None:
+            # 按 id 去重，保留首次出现的顺序（已按融合分排序）
+            merged: list[dict] = []
+            seen_ids: set[str] = set()
+            for doc in accumulated:
+                key = str(doc.get("id", ""))
+                if key and key not in seen_ids:
+                    seen_ids.add(key)
+                    merged.append(doc)
             payload.update(
                 {
-                    "retrieved_docs": best.docs,
+                    "retrieved_docs": merged,
                     "rag_score": best.score,
                     "dense_top1": best.dense_top1,
                     "rag_hit": best.hit,
