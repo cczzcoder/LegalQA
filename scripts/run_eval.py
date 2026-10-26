@@ -17,6 +17,7 @@ import json
 import sys
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,6 +89,10 @@ def main() -> int:
     parser.add_argument("--json", default="", help="把明细写到这个文件")
     parser.add_argument("--rerank", action="store_true", help="开启 LLM 重排")
     parser.add_argument("--rewrite", action="store_true", help="开启检索前 LLM 改写")
+    parser.add_argument(
+        "--workers", type=int, default=1,
+        help="并发数。每条用例 10 秒左右，串行跑 100 条要 20 分钟，并行能把评测压到可迭代的长度",
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -123,17 +128,30 @@ def main() -> int:
 
     print(f"[i] 用例 {len(cases)} 条 | 索引 {len(index)} 条 | {len(index.law_names)} 部法律\n")
 
-    reports: list[CaseReport] = []
     started = time.perf_counter()
-    for i, case in enumerate(cases, 1):
-        report = evaluate_one(app, index, case)
-        reports.append(report)
-        mark = "✓" if report.passed else "✗"
-        print(
-            f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
-            f"轮次{report.iterations} {report.channel or '-':<6} "
-            f"{case['query'][:24]}"
-        )
+    workers = max(1, args.workers)
+
+    if workers == 1:
+        reports = []
+        for case in cases:
+            report = evaluate_one(app, index, case)
+            reports.append(report)
+            mark = "✓" if report.passed else "✗"
+            print(
+                f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
+                f"轮次{report.iterations} {report.channel or '-':<6} {case['query'][:24]}"
+            )
+    else:
+        # 用例之间没有共享状态，`app.invoke` 每次都是独立的一次图执行，
+        # 所以可以并发。单条 10 秒、100 条串行 20 分钟，串行跑不动迭代。
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            reports = list(pool.map(lambda c: evaluate_one(app, index, c), cases))
+        for report in reports:
+            mark = "✓" if report.passed else "✗"
+            print(
+                f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
+                f"轮次{report.iterations} {report.channel or '-':<6} {report.query[:24]}"
+            )
 
     total_time = time.perf_counter() - started
     passed = sum(1 for r in reports if r.passed)

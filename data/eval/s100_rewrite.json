@@ -1,0 +1,4102 @@
+[
+  {
+    "id": "s100-001",
+    "query": "我家附近新开了家医院，听说有放射科，我想知道环保部门会不会定期来检查辐射安全？",
+    "passed": false,
+    "latency_ms": 17659,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7434,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "814 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第607条"
+      }
+    ]
+  },
+  {
+    "id": "s100-002",
+    "query": "我们县里开人代会选出来的常委会，到底管哪些事儿？能替老百姓做主解决实际问题吗？",
+    "passed": false,
+    "latency_ms": 15969,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7444,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "993 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第73条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《宪法》第96条"
+      }
+    ]
+  },
+  {
+    "id": "s100-003",
+    "query": "我讨要工资和补偿金，仲裁裁决没说是不是终局裁决，但每项都没超过当地最低工资12个月总额，这算终局裁决吗？",
+    "passed": true,
+    "latency_ms": 11827,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7189,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "529 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-004",
+    "query": "我白送朋友一台电脑，但说好他得帮我照看孩子半年，他现在反悔不干了，我能要回电脑吗？",
+    "passed": false,
+    "latency_ms": 16515,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7708,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "865 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第224条、第563条、第566条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-005",
+    "query": "我出工伤前工资比市里平均工资高很多，赔钱时是按我实际工资算，还是只能按平均工资三倍封顶？",
+    "passed": true,
+    "latency_ms": 14911,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7728,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "776 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-006",
+    "query": "我家装修剩下的砖头水泥渣，找了个小货车拉去郊区空地倒了，这算违法吗？",
+    "passed": false,
+    "latency_ms": 12048,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6891,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "739 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第618条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第518条"
+      }
+    ]
+  },
+  {
+    "id": "s100-007",
+    "query": "空管员喝完酒马上上岗指挥飞机，出了事谁来赔老百姓的损失？",
+    "passed": false,
+    "latency_ms": 11629,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7621,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": false,
+        "detail": "回答缺少免责声明"
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "287 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民用航空法》第244条"
+      }
+    ]
+  },
+  {
+    "id": "s100-008",
+    "query": "老板答应赔我钱后又反悔不给，我该怎么去劳动仲裁要回来？",
+    "passed": false,
+    "latency_ms": 19447,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8144,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "978 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第2条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《劳动争议调解仲裁法》第15条"
+      }
+    ]
+  },
+  {
+    "id": "s100-009",
+    "query": "我家小餐馆在禁燃区里，原来烧煤的炉子不让用了，换天然气要好几万，这钱该谁出啊？",
+    "passed": true,
+    "latency_ms": 8537,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6259,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "404 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-010",
+    "query": "我被仲裁委说不归他们管，直接给退回来了，这事儿法院还能帮我处理吗？",
+    "passed": true,
+    "latency_ms": 16303,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7448,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "824 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-011",
+    "query": "规划草案让专家提意见时，要是专家泄密了，老百姓能找谁说理去？",
+    "passed": false,
+    "latency_ms": 23332,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.642,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1243 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1165条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-012",
+    "query": "我托物流公司运货，结果中途丢了一箱，该找发货的老板赔还是找实际运货的司机赔？",
+    "passed": false,
+    "latency_ms": 13796,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.72,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "810 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第832条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第838条"
+      }
+    ]
+  },
+  {
+    "id": "s100-013",
+    "query": "我家地被矿上占去搭工棚修便道，他们说这是勘查用地，我该找谁要补偿？",
+    "passed": true,
+    "latency_ms": 15620,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7116,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "912 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-014",
+    "query": "老板没给我们做安全培训，干活时受伤了能找他赔钱吗？",
+    "passed": false,
+    "latency_ms": 22677,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6682,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1229 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《劳动法》第52条"
+      }
+    ]
+  },
+  {
+    "id": "s100-015",
+    "query": "我家盖房请人做设计，对方拖了好久才交图纸，还画错了好几处，这损失该不该让设计师赔？",
+    "passed": false,
+    "latency_ms": 17921,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.7952,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "716 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第794条"
+      }
+    ]
+  },
+  {
+    "id": "s100-016",
+    "query": "我用自家房子抵押贷款，结果银行把这房子又转押给别人了，这合法吗？",
+    "passed": false,
+    "latency_ms": 14607,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7846,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "758 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第153条、第157条、第546条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第446条"
+      }
+    ]
+  },
+  {
+    "id": "s100-017",
+    "query": "我家楼下工地半夜十点后还在打桩，说是有特殊需要，他们得拿啥证明才能合法干？",
+    "passed": true,
+    "latency_ms": 13524,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7611,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "772 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-018",
+    "query": "我家孩子学校组织去外地参观学习，说是为了增进民族感情，这活动必须参加吗？不参加会不会影响孩子评优？",
+    "passed": true,
+    "latency_ms": 12822,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.5562,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "674 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-019",
+    "query": "我在事业单位当合同工，跟单位闹掰了想讨说法，能按普通打工人的办法去申请劳动仲裁吗？",
+    "passed": true,
+    "latency_ms": 19915,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7337,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1065 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-020",
+    "query": "老板没正当理由就把我辞退了，我能不能要双倍的补偿金？",
+    "passed": false,
+    "latency_ms": 12247,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.754,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "714 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第39条、第40条、第41条、第47条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-021",
+    "query": "我们工人和老板闹矛盾了，找谁帮忙调解最管用？",
+    "passed": false,
+    "latency_ms": 12055,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7208,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "710 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第14条、第27条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《劳动争议调解仲裁法》第8条"
+      }
+    ]
+  },
+  {
+    "id": "s100-022",
+    "query": "我家鱼塘在湿地边上，现在镇里说要限制养鱼规模，这合理吗？会赔钱吗？",
+    "passed": false,
+    "latency_ms": 14059,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6524,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": false,
+        "detail": "回答缺少免责声明"
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 0 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第729条"
+      }
+    ]
+  },
+  {
+    "id": "s100-023",
+    "query": "我家老房子想翻新，怎么才能按现在提倡的绿色低碳方式来建，又不花太多钱？",
+    "passed": true,
+    "latency_ms": 20966,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6134,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "823 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-024",
+    "query": "我把自己注册的商标转给朋友，但名下还有几个相似的商标，是不是必须一起转？",
+    "passed": true,
+    "latency_ms": 9672,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7769,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "444 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-025",
+    "query": "我家旁边小河发黑发臭，怀疑是附近厂子偷偷往里排污水，这事儿该找谁管？",
+    "passed": false,
+    "latency_ms": 9759,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8193,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "513 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第164条"
+      }
+    ]
+  },
+  {
+    "id": "s100-026",
+    "query": "我出了工伤，该找县里哪个部门办赔钱手续？",
+    "passed": true,
+    "latency_ms": 10041,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7376,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "569 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-027",
+    "query": "我们市最近老是雾霾天，政府有没有专门的应急方案？普通老百姓能查到吗？",
+    "passed": true,
+    "latency_ms": 8310,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.742,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "489 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-028",
+    "query": "我寄的货还在飞机上没到，能中途让航空公司把货退回来吗？要付啥费用？",
+    "passed": false,
+    "latency_ms": 15949,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7755,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "799 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第497条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-029",
+    "query": "我们公司自己做的环评报告出了问题，被罚了款，那我作为写报告的人会被罚多少钱、禁业几年？",
+    "passed": true,
+    "latency_ms": 18799,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7928,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "955 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-030",
+    "query": "我家老人需要长期吃的降压药，能在手机上买吗？",
+    "passed": true,
+    "latency_ms": 13983,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6818,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "782 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-031",
+    "query": "我们省里搞的基建项目，说按国家规划来的，但没见公布具体咋落实，这合理吗？",
+    "passed": false,
+    "latency_ms": 10400,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6303,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "430 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《国家发展规划法》第22条"
+      }
+    ]
+  },
+  {
+    "id": "s100-032",
+    "query": "我被劳务派遣公司派到一家厂里干活，结果厂里不按规矩来，害我受了伤，这钱该找谁赔？",
+    "passed": true,
+    "latency_ms": 20870,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7559,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1166 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-033",
+    "query": "我家孩子在海外学中文，老师主要教方言和繁体字，这样合规吗？",
+    "passed": false,
+    "latency_ms": 19129,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6081,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "874 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《国家通用语言文字法》第22条"
+      }
+    ]
+  },
+  {
+    "id": "s100-034",
+    "query": "我在劳务派遣公司上班，干的活儿和正式员工一模一样，为啥工资比他们少一大截？这合理吗？",
+    "passed": true,
+    "latency_ms": 14969,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7612,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "869 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-035",
+    "query": "我请人帮忙做技术开发，过程中他用我给的资料搞出了新东西，这新成果算他的还是我的？",
+    "passed": true,
+    "latency_ms": 15282,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7591,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "810 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-036",
+    "query": "老板让我签了服务期协议，现在他不交社保，我辞职要赔钱吗？",
+    "passed": false,
+    "latency_ms": 11648,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7863,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "651 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第38条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-037",
+    "query": "我以前对老人不好，后来真心悔改了，老人也原谅我了，那我还能分到他的房子吗？",
+    "passed": true,
+    "latency_ms": 17582,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6897,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "902 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-038",
+    "query": "我家渔船在禁渔期停在码头没出海，邻居给我送了点冰块，这算违法吗？",
+    "passed": true,
+    "latency_ms": 22003,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6255,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "938 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-039",
+    "query": "老板没按合同交货，我因此少赚的钱他得赔吗？",
+    "passed": true,
+    "latency_ms": 11709,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6875,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "560 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-040",
+    "query": "我家申请低保被要求提供一堆材料，但有些信息觉得太私密不想给，他们能硬要吗？",
+    "passed": false,
+    "latency_ms": 18471,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8054,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "930 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《社会救助法》第65条"
+      }
+    ]
+  },
+  {
+    "id": "s100-041",
+    "query": "我买了一台电脑，附带的鼠标坏了，能连电脑一起退吗？",
+    "passed": false,
+    "latency_ms": 24164,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.5539,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1131 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第631条"
+      }
+    ]
+  },
+  {
+    "id": "s100-042",
+    "query": "我家药厂注册的商标名刚好和某个药品通用名一样，现在还能继续用这个商标卖药吗？",
+    "passed": false,
+    "latency_ms": 11935,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8018,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "597 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第44条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-043",
+    "query": "我家工厂被列进重点排放单位名单了，现在要怎么算自己排了多少碳、该交多少配额，找谁办这事？",
+    "passed": false,
+    "latency_ms": 16612,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7311,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": false,
+        "detail": "回答缺少免责声明"
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 0 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第1037条"
+      }
+    ]
+  },
+  {
+    "id": "s100-044",
+    "query": "我家老人退休金太低，看病都困难，国家说要改善生活，这事儿该找谁帮忙解决？",
+    "passed": false,
+    "latency_ms": 18509,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6462,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "489 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《宪法》第14条"
+      }
+    ]
+  },
+  {
+    "id": "s100-045",
+    "query": "我家附近工厂老排黑烟，空气呛人，找谁管这事？",
+    "passed": false,
+    "latency_ms": 7735,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8287,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "424 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第22条"
+      }
+    ]
+  },
+  {
+    "id": "s100-046",
+    "query": "我去年评了伤残等级，现在伤得更重了，能重新去评一次吗？",
+    "passed": true,
+    "latency_ms": 6657,
+    "iterations": 1,
+    "channel": "",
+    "score": 0.0,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "479 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": "无检索材料，跳过"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-047",
+    "query": "老板一直没跟我签劳动合同，都干了快一年了，我能不能要双倍工资？",
+    "passed": false,
+    "latency_ms": 14017,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.9207,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "800 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《劳动合同法实施条例》第6条"
+      }
+    ]
+  },
+  {
+    "id": "s100-048",
+    "query": "我工资发得少，老板还总扣这扣那，到底哪些钱该交税、交多少才合理？",
+    "passed": false,
+    "latency_ms": 12899,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.5891,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "588 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《宪法》第56条"
+      }
+    ]
+  },
+  {
+    "id": "s100-049",
+    "query": "我们社区医院自己配的膏药出了问题，该找院长还是药房主任赔钱？",
+    "passed": false,
+    "latency_ms": 20520,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7264,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1004 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1202条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-050",
+    "query": "我房子还在还房贷，现在想卖房，银行说要我先把贷款还清才能过户，这样合理吗？",
+    "passed": true,
+    "latency_ms": 15676,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7622,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "713 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-051",
+    "query": "我老公在监狱里写了申诉信交给管教，都过了一周了还没收到回音，这正常吗？",
+    "passed": true,
+    "latency_ms": 16198,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7364,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "776 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-052",
+    "query": "我请的会计跟我家有亲戚关系，这算不算得回避？他还能继续给我做账吗？",
+    "passed": false,
+    "latency_ms": 16230,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.703,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1036 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1045条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-053",
+    "query": "我找会计事务所做审计，结果他们没按规矩办事还害我亏了钱，能让他们赔吗？",
+    "passed": false,
+    "latency_ms": 11175,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7166,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "533 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《注册会计师法》第8条"
+      }
+    ]
+  },
+  {
+    "id": "s100-054",
+    "query": "老板把我无故辞退后，我又打赢了官司要求继续上班，那从被辞退到重新上班前这段时间的工资，老板该按原来工资标准补给我吗？",
+    "passed": true,
+    "latency_ms": 13359,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.786,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "769 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-055",
+    "query": "我家楼下夜市喇叭声吵得没法睡觉，找城管反映好几次都不管，他们能直接把喇叭收走吗？",
+    "passed": false,
+    "latency_ms": 12385,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7276,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "623 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第562条"
+      }
+    ]
+  },
+  {
+    "id": "s100-056",
+    "query": "我卖的东西被说侵犯别人商标，工商部门查完说不构成犯罪，那他们还能罚我款或者让我赔钱吗？",
+    "passed": false,
+    "latency_ms": 20254,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6801,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "678 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第60条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《商标法》第75条"
+      }
+    ]
+  },
+  {
+    "id": "s100-057",
+    "query": "我家注册的商标快满十年了，是不是得赶紧去续期，不然就作废不能用了？",
+    "passed": true,
+    "latency_ms": 12324,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7936,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "626 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-058",
+    "query": "我们市里能出台专门保护少数民族权益、促进民族团结的具体规定吗？",
+    "passed": true,
+    "latency_ms": 12223,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8038,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "685 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-059",
+    "query": "我家附近突然有架外国小飞机没打招呼就飞过头顶，还低空盘旋，这算违法吗？",
+    "passed": true,
+    "latency_ms": 13704,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.774,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "643 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-060",
+    "query": "我家五岁孩子偷偷用我手机给游戏充了三千块，这钱能要回来吗？",
+    "passed": true,
+    "latency_ms": 12018,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8549,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "568 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-061",
+    "query": "我家渔船不小心碰坏了海边的珊瑚，要赔多少钱？",
+    "passed": true,
+    "latency_ms": 13710,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7113,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "711 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-062",
+    "query": "我和老公一起开公司，俩人都在股东名册上，离婚时他想按当初谁出多少钱来分股份，这样行吗？",
+    "passed": false,
+    "latency_ms": 14981,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8021,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "861 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1087条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-063",
+    "query": "老板没营业执照还让我干活，出了事该找谁赔钱？",
+    "passed": false,
+    "latency_ms": 14745,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7252,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "719 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《最高人民法院关于审理劳动争议案件适用法律问题的解释（一）》第29条"
+      }
+    ]
+  },
+  {
+    "id": "s100-064",
+    "query": "我家小厂子想买点排污指标来扩大生产，这事儿现在能办吗？要找谁办？",
+    "passed": true,
+    "latency_ms": 18471,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6977,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1075 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-065",
+    "query": "我家附近建了个放射性废物处理站，以后孩子生病了能找他们赔钱吗？",
+    "passed": false,
+    "latency_ms": 21703,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7743,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1091 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第603条"
+      }
+    ]
+  },
+  {
+    "id": "s100-066",
+    "query": "我身体不好没法带孩子了，前夫想把孩子要回去，法院会同意吗？",
+    "passed": false,
+    "latency_ms": 13570,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7705,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "748 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": false,
+        "detail": "不存在的条号: 《最高人民法院关于审理劳动争议案件适用法律问题的解释（一）》第56条、《最高人民法院关于审理劳动争议案件适用法律问题的解释（一）》第57条"
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-067",
+    "query": "我哥哥从小把我养大，现在他生病没收入，我该不该出钱养他？",
+    "passed": true,
+    "latency_ms": 13500,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7635,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "779 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-068",
+    "query": "我家旁边工地天天冒黑烟，环保局说归别的法管，到底该按哪个规定来管这事？",
+    "passed": false,
+    "latency_ms": 28052,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6059,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "808 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第1239条"
+      }
+    ]
+  },
+  {
+    "id": "s100-069",
+    "query": "我家附近工厂老冒黑烟，我想查空气质量数据，该找市里哪个部门要？",
+    "passed": true,
+    "latency_ms": 7957,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7326,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "498 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-070",
+    "query": "我家孩子坐飞机时遇到乱飞的私人小飞机，离得很近吓人，这算违法吗？",
+    "passed": false,
+    "latency_ms": 14243,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6662,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "728 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民用航空法》第80条"
+      }
+    ]
+  },
+  {
+    "id": "s100-071",
+    "query": "我家附近搞了个种树治沙的生态修复工程，现在说完工了，该找哪个部门验收？",
+    "passed": true,
+    "latency_ms": 10692,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7995,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "663 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-072",
+    "query": "我家孩子在某平台被造谣骂得不敢上学，平台一直没删帖，我能找平台一起赔钱吗？",
+    "passed": true,
+    "latency_ms": 14707,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7329,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "797 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-073",
+    "query": "我家祖传的宅基地上盖了房，现在村里说这房子不算我的，我到底有没有权利住这儿？",
+    "passed": false,
+    "latency_ms": 20190,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6755,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "834 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第116条"
+      }
+    ]
+  },
+  {
+    "id": "s100-074",
+    "query": "我家孩子学历史专业，想研究少数民族和汉族怎么慢慢变成一家人的，这方向现在好找工作吗？",
+    "passed": false,
+    "latency_ms": 8491,
+    "iterations": 1,
+    "channel": "",
+    "score": 0.0,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "559 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": "无检索材料，跳过"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民族团结进步促进法》第17条"
+      }
+    ]
+  },
+  {
+    "id": "s100-075",
+    "query": "老板没跟我续签合同，但我一直干了俩月，现在想按原来的条件续签，他不答应，我能硬要吗？",
+    "passed": false,
+    "latency_ms": 18057,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8315,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1117 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第14条、第48条、第82条、第87条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-076",
+    "query": "我从国外带点新品种果树苗回来种，第一次引进要办啥手续，还得做啥评估？",
+    "passed": false,
+    "latency_ms": 8512,
+    "iterations": 1,
+    "channel": "",
+    "score": 0.0,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "589 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": "无检索材料，跳过"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第848条"
+      }
+    ]
+  },
+  {
+    "id": "s100-077",
+    "query": "我家老外朋友想和我合伙开个矿，听说要过什么安全审查，具体得咋办啊？",
+    "passed": false,
+    "latency_ms": 19907,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7356,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": false,
+        "detail": "回答缺少免责声明"
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 0 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《矿产资源法实施条例》第74条"
+      }
+    ]
+  },
+  {
+    "id": "s100-078",
+    "query": "我们县给上游保护水源地，下游县用着水却没给补偿，这事儿该找谁要钱？",
+    "passed": true,
+    "latency_ms": 18893,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6501,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1048 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-079",
+    "query": "我家孩子在学校被要求必须用普通话回答问题，连课间跟同学说方言都不让，这样合法吗？",
+    "passed": false,
+    "latency_ms": 13941,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6707,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "829 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《国家通用语言文字法》第32条"
+      }
+    ]
+  },
+  {
+    "id": "s100-080",
+    "query": "我跟老板签了专利使用合同，能让我朋友也用这个专利吗？",
+    "passed": true,
+    "latency_ms": 10448,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6479,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "418 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-081",
+    "query": "我家孩子一直跟爷爷奶奶住，他们也愿意帮忙带，现在我和前夫争抚养权，这情况能让我更容易拿到孩子吗？",
+    "passed": false,
+    "latency_ms": 16288,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.708,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "969 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《最高人民法院关于适用民法典婚姻家庭编的解释（一）》第47条"
+      }
+    ]
+  },
+  {
+    "id": "s100-082",
+    "query": "我租的设备因为厂家问题合同黄了，老板让我赔钱，可这事儿跟他也有关系，我还得掏腰包吗？",
+    "passed": false,
+    "latency_ms": 17385,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.788,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "799 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第755条"
+      }
+    ]
+  },
+  {
+    "id": "s100-083",
+    "query": "我家地被矿上挖塌了，房子裂了缝，他们该赔我多少钱？",
+    "passed": false,
+    "latency_ms": 16727,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6776,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "893 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1184条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《矿产资源法实施条例》第73条"
+      }
+    ]
+  },
+  {
+    "id": "s100-084",
+    "query": "我家老人买药发现价格虚高还带夸大宣传，该找哪个部门投诉管这事？",
+    "passed": false,
+    "latency_ms": 13249,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6987,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "786 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《药品管理法》第91条"
+      }
+    ]
+  },
+  {
+    "id": "s100-085",
+    "query": "飞机在公海上空把我家房子砸坏了，该按哪地的规矩赔我钱？",
+    "passed": true,
+    "latency_ms": 12932,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6504,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "591 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-086",
+    "query": "我借给朋友钱，他用房子抵押给我，现在过了三年没起诉他，还能不能拿房子抵债？",
+    "passed": false,
+    "latency_ms": 15268,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8498,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "843 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第188条、第192条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-087",
+    "query": "我家楼下小餐馆老用一次性餐具，我劝他们改用可重复清洗的，他们说不赚钱没法换，这事儿能找谁管？",
+    "passed": false,
+    "latency_ms": 15054,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6319,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "920 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第142条"
+      }
+    ]
+  },
+  {
+    "id": "s100-088",
+    "query": "我买了辆二手电动车，后来发现车是别人抵押给卖家的，这车现在归我吗？",
+    "passed": true,
+    "latency_ms": 13216,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6792,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "695 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-089",
+    "query": "我家旁边工厂排污水把菜地搞坏了，找他们赔钱没谈拢，能直接去法院告吗？",
+    "passed": false,
+    "latency_ms": 13756,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7885,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "780 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第1077条"
+      }
+    ]
+  },
+  {
+    "id": "s100-090",
+    "query": "我买房子还没办完过户，这期间租出去的房租该归谁？",
+    "passed": false,
+    "latency_ms": 10225,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7663,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "560 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第209条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-091",
+    "query": "我家附近要建新监狱，听说是司法部批的，这事儿老百姓能提意见吗？",
+    "passed": false,
+    "latency_ms": 15837,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6456,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "764 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《监狱法》第11条"
+      }
+    ]
+  },
+  {
+    "id": "s100-092",
+    "query": "我买了一包中药材，包装上没写产地和生产日期，能找老板退钱吗？",
+    "passed": true,
+    "latency_ms": 14670,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6427,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "837 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-093",
+    "query": "我们小区物业在通知栏贴告示只写方言不写普通话，这算违规吗？",
+    "passed": false,
+    "latency_ms": 8223,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7096,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "429 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《国家通用语言文字法》第24条"
+      }
+    ]
+  },
+  {
+    "id": "s100-094",
+    "query": "网上看病时医生给我开那种特别管用但容易上瘾的药，这合法吗？",
+    "passed": false,
+    "latency_ms": 10448,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6356,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "612 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《药品管理法实施条例》第51条"
+      }
+    ]
+  },
+  {
+    "id": "s100-095",
+    "query": "老婆自己把孩子打掉了，我生气想离婚，法院会判离吗？",
+    "passed": false,
+    "latency_ms": 21564,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6832,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "962 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《最高人民法院关于适用民法典婚姻家庭编的解释（一）》第23条"
+      }
+    ]
+  },
+  {
+    "id": "s100-096",
+    "query": "老板没按时给我施工需要的材料和钱，耽误工期了，我能要求赔停工损失吗？",
+    "passed": false,
+    "latency_ms": 16657,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8327,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "801 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第803条"
+      }
+    ]
+  },
+  {
+    "id": "s100-097",
+    "query": "我家附近海边污染特别严重，环保、海事、渔业好几个部门都说不归自己管，我该找谁投诉才能真有人管这事？",
+    "passed": false,
+    "latency_ms": 16359,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7172,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "967 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第337条"
+      }
+    ]
+  },
+  {
+    "id": "s100-098",
+    "query": "我家老人生活困难，社区说可以找红十字会帮忙，他们真能给发米面油或者帮交水电费吗？",
+    "passed": true,
+    "latency_ms": 13873,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7107,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "848 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-099",
+    "query": "我借给朋友十万元，他找了个熟人做担保，现在朋友不还钱了，我过了半年才去找担保人要钱，他还得帮着还吗？",
+    "passed": true,
+    "latency_ms": 21691,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8007,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1070 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "s100-100",
+    "query": "我给保理公司发了转让通知后，老板又跟客户私下改了付款条件，这对我有啥影响？",
+    "passed": true,
+    "latency_ms": 21469,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7866,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "985 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  }
+]

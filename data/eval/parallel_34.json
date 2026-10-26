@@ -1,0 +1,1366 @@
+[
+  {
+    "id": "labor-001",
+    "query": "公司拖欠工资不发怎么办",
+    "passed": true,
+    "latency_ms": 13838,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7899,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "807 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "labor-002",
+    "query": "试用期最长可以多久",
+    "passed": true,
+    "latency_ms": 11352,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8014,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "582 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "labor-003",
+    "query": "公司违法解除劳动合同怎么赔偿",
+    "passed": false,
+    "latency_ms": 15117,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7792,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "982 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第47条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "labor-004",
+    "query": "没签劳动合同能要双倍工资吗",
+    "passed": true,
+    "latency_ms": 15527,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8093,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "957 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "labor-005",
+    "query": "劳动争议仲裁时效多久",
+    "passed": true,
+    "latency_ms": 8916,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8023,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "565 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "labor-006",
+    "query": "劳动合同到期不续签有补偿吗",
+    "passed": false,
+    "latency_ms": 13240,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7376,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "829 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第44条、第47条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "injury-001",
+    "query": "在工地摔伤算工伤吗",
+    "passed": true,
+    "latency_ms": 8847,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7123,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "547 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "injury-002",
+    "query": "工伤认定需要什么材料",
+    "passed": true,
+    "latency_ms": 8724,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7964,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "539 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "injury-003",
+    "query": "没交社保还能认定工伤吗",
+    "passed": true,
+    "latency_ms": 10822,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7561,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "698 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "injury-004",
+    "query": "上下班路上出车祸算工伤吗",
+    "passed": true,
+    "latency_ms": 9497,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7533,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "594 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "marriage-001",
+    "query": "离婚时房子怎么分割",
+    "passed": false,
+    "latency_ms": 12744,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7198,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "799 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1062条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "marriage-002",
+    "query": "夫妻共同债务怎么认定",
+    "passed": true,
+    "latency_ms": 10894,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7119,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "677 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "marriage-003",
+    "query": "孩子抚养权怎么判",
+    "passed": true,
+    "latency_ms": 11721,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6967,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "729 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "marriage-004",
+    "query": "离婚冷静期是多久",
+    "passed": true,
+    "latency_ms": 7224,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6099,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "411 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "civil-001",
+    "query": "合同违约金过高可以调整吗",
+    "passed": true,
+    "latency_ms": 6346,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7555,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "439 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "civil-002",
+    "query": "高空抛物砸伤人谁负责",
+    "passed": true,
+    "latency_ms": 12182,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7224,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "761 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "civil-003",
+    "query": "小区电梯广告收益归谁",
+    "passed": true,
+    "latency_ms": 8922,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6132,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "557 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "civil-004",
+    "query": "借钱不还没有借条能起诉吗",
+    "passed": true,
+    "latency_ms": 10451,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7045,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "648 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "ip-001",
+    "query": "商标注册需要多长时间",
+    "passed": true,
+    "latency_ms": 8455,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7629,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "524 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "ip-002",
+    "query": "商标被侵权能要多少赔偿",
+    "passed": true,
+    "latency_ms": 11383,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7676,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "636 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "drug-001",
+    "query": "药品广告有什么限制",
+    "passed": true,
+    "latency_ms": 13016,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.6988,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "904 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "aviation-001",
+    "query": "飞机上发生事故乘客怎么赔偿",
+    "passed": true,
+    "latency_ms": 20287,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7664,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "1146 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "prison-001",
+    "query": "罪犯表现好可以减刑吗",
+    "passed": true,
+    "latency_ms": 7181,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7306,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "398 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "welfare-001",
+    "query": "什么条件可以申请社会救助",
+    "passed": true,
+    "latency_ms": 11155,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7347,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "677 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "mining-001",
+    "query": "开采矿产资源需要什么许可",
+    "passed": true,
+    "latency_ms": 10884,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7576,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "701 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "exact-001",
+    "query": "民法典第1087条怎么规定的",
+    "passed": false,
+    "latency_ms": 7461,
+    "iterations": 2,
+    "channel": "exact",
+    "score": 1.0,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "481 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第1091条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "exact-002",
+    "query": "劳动法第50条",
+    "passed": true,
+    "latency_ms": 6890,
+    "iterations": 2,
+    "channel": "exact",
+    "score": 1.0,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "388 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "exact-003",
+    "query": "工伤保险条例第14条",
+    "passed": false,
+    "latency_ms": 6487,
+    "iterations": 2,
+    "channel": "exact",
+    "score": 1.0,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "406 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": false,
+        "detail": "未溯源: 第15条"
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "关键要素",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "off-001",
+    "query": "个人所得税怎么计算",
+    "passed": true,
+    "latency_ms": 8703,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6246,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "236 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "off-002",
+    "query": "醉驾会判几年",
+    "passed": true,
+    "latency_ms": 7635,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.5796,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "219 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "off-003",
+    "query": "公司上市需要什么条件",
+    "passed": true,
+    "latency_ms": 10639,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6037,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "312 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "off-004",
+    "query": "护照怎么办理",
+    "passed": true,
+    "latency_ms": 11837,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.5635,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "212 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "off-005",
+    "query": "股权转让要交什么税",
+    "passed": true,
+    "latency_ms": 9528,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6473,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "195 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "id": "off-006",
+    "query": "怎么申请专利",
+    "passed": true,
+    "latency_ms": 10688,
+    "iterations": 3,
+    "channel": "dense",
+    "score": 0.6488,
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "291 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  }
+]

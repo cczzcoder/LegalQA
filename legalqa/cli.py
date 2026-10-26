@@ -315,8 +315,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--show-prompt", action="store_true", help="打印发给模型的内容")
     parser.add_argument("--check", action="store_true", help="接入自检：连通性 + 工具调用能力")
     parser.add_argument(
-        "--rerank", action="store_true",
-        help="开启 LLM 重排：检索 R@6 +10pt，但每次检索多一次调用（+1.5s），端到端未见提升",
+        "--no-rerank", action="store_true",
+        help="关闭 LLM 重排（默认开启：100 条端到端 +4pt 通过率、+9pt 引用可溯源）",
     )
     args = parser.parse_args(argv)
     load_dotenv()
@@ -334,10 +334,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         from legalqa.tools.reranker import make_llm_reranker
 
-        # 重排默认关闭：检索层 R@6 +10pt（40 条口语用例），
-        # 但 34 条端到端用例上通过率没有变化，而延迟 +15%。
-        # 等评测集扩大、能测出差异后再考虑改默认值。
-        reranker = make_llm_reranker(llm) if args.rerank else None
+        # 重排默认开启。100 条口语端到端用例实测：
+        #   通过率 46% → 50%，引用可溯源 77% → 86%。
+        # 之前 20 条样本测出「-5pt」是小样本噪声，已推翻。
+        reranker = None if args.no_rerank else make_llm_reranker(llm)
 
         if args.mode == PIPELINE:
             from legalqa.tools.rewriter import make_llm_rewriter
