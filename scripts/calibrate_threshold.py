@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from legalqa.corpus.index import VectorIndex  # noqa: E402
+from legalqa.env import load_dotenv  # noqa: E402
 from legalqa.llm_factory import get_embeddings  # noqa: E402
 from legalqa.tools.read_tool import ReadTool  # noqa: E402
 
@@ -87,6 +88,7 @@ def main() -> int:
     parser.add_argument("--hi", type=float, default=0.80)
     args = parser.parse_args()
 
+    load_dotenv()
     golden_path = ROOT / args.golden
     if not golden_path.exists():
         print(f"[x] golden set 不存在：{golden_path}", file=sys.stderr)

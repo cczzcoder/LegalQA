@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from legalqa.corpus.index import VectorIndex  # noqa: E402
+from legalqa.env import load_dotenv  # noqa: E402
 from legalqa.corpus.ingest import (  # noqa: E402
     Article,
     ScannedPdfError,
@@ -125,6 +126,7 @@ def main() -> int:
     parser.add_argument("--full", action="store_true", help="强制全量重建索引（忽略已有向量）")
     args = parser.parse_args()
 
+    load_dotenv()          # 云端 embedding 需要 LEGALQA_LLM_API_KEY
     source_dir = ROOT / args.dir
     if not source_dir.exists():
         print(f"[x] 目录不存在：{source_dir}", file=sys.stderr)

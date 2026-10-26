@@ -16,7 +16,7 @@
     LEGALQA_LLM_MODEL           qwen2.5:1.5b-instruct   (默认)
     LEGALQA_LLM_BASE_URL        ollama / openai 兼容端点
     LEGALQA_LLM_API_KEY         openai 或兼容服务密钥
-    LEGALQA_EMBEDDING_PROVIDER  ollama | huggingface | hash  (默认 huggingface)
+    LEGALQA_EMBEDDING_PROVIDER  dashscope | ollama | huggingface | hash
     LEGALQA_EMBEDDING_MODEL     BAAI/bge-small-zh-v1.5  (默认)
     LEGALQA_EMBEDDING_DEVICE    cpu                     (默认)
     LEGALQA_MODEL_DIR           模型缓存目录（建议指向 D 盘）
@@ -264,6 +264,34 @@ def _build_embeddings() -> Any:
     if provider == "hash":
         logger.warning("使用 HashEmbeddings（仅测试用，无真实语义能力）")
         return HashEmbeddings()
+
+    if provider == "dashscope":
+        # 云端向量化：本地零模型内存。8 GB 机器上 bge-m3 要占 1.16 GB，
+        # 换到云端后这部分完全释放。
+        # text-embedding-v4 的 CMTEB Retrieval 是 73.98（1024 维），
+        # 高于 bge-m3 的量级；价格 0.0005 元/千 token，全量重建 4264 条约 0.2 元。
+        try:
+            from langchain_openai import OpenAIEmbeddings
+        except ImportError as exc:  # pragma: no cover - 环境相关
+            raise LLMConfigError(
+                "缺少 langchain-openai。请执行："
+                "pip install langchain-openai -i https://pypi.tuna.tsinghua.edu.cn/simple"
+            ) from exc
+        api_key = os.environ.get("LEGALQA_LLM_API_KEY", "").strip()
+        if not api_key:
+            raise LLMConfigError("provider=dashscope 的 embedding 需要 LEGALQA_LLM_API_KEY")
+        return OpenAIEmbeddings(
+            model=_env("LEGALQA_EMBEDDING_MODEL", "text-embedding-v4"),
+            api_key=api_key,
+            base_url=_env(
+                "LEGALQA_EMBEDDING_BASE_URL",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            ),
+            # 关掉本地 tiktoken 长度检查：它会尝试下载编码表，且对我们的
+            # 分块逻辑没有帮助（我们自己控制单条长度）
+            check_embedding_ctx_length=False,
+            chunk_size=10,   # DashScope 单批上限
+        )
 
     if provider == "ollama":
         # 走 Ollama 的向量接口：不需要 torch / sentence-transformers，

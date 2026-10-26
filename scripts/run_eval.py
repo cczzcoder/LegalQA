@@ -83,7 +83,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="跑法律问答评测集")
     parser.add_argument("--cases", default="data/eval/cases.jsonl")
     parser.add_argument("--index", default="data/index/all")
-    parser.add_argument("--embedder", default="ollama", choices=["hash", "ollama", "hf"])
+    parser.add_argument("--embedder", default="auto", choices=["auto", "hash", "ollama", "dashscope", "hf"],
+                        help="auto=跟随 .env（必须和建索引时一致，否则检索全 0）")
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 条")
     parser.add_argument("--category", default="", help="只跑某一类")
     parser.add_argument("--json", default="", help="把明细写到这个文件")

@@ -33,29 +33,11 @@ from legalqa import config
 from legalqa.corpus.index import VectorIndex
 from legalqa.corpus.ingest import load_jsonl
 from legalqa.graph import LOOP, PIPELINE, build_graph
+from legalqa.env import load_dotenv
 from legalqa.state import LegalState, coerce_state
 from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def load_dotenv(path: Path | None = None) -> None:
-    """极简 .env 加载。不引入 python-dotenv：15 行能解决的事不值得多一个依赖。
-
-    规则：`KEY=VALUE`，`#` 开头为注释，已存在的环境变量优先（不覆盖）。
-    """
-    env_file = path or (ROOT / ".env")
-    if not env_file.exists():
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
 
 
 class DryRunModel(BaseChatModel):
@@ -140,6 +122,12 @@ def build_embedder(choice: str) -> Any:
     if choice == "ollama":
         os.environ["LEGALQA_EMBEDDING_PROVIDER"] = "ollama"
         os.environ.setdefault("LEGALQA_EMBEDDING_MODEL", "bge-m3")
+    elif choice == "dashscope":
+        os.environ["LEGALQA_EMBEDDING_PROVIDER"] = "dashscope"
+        os.environ.setdefault("LEGALQA_EMBEDDING_MODEL", "text-embedding-v4")
+    # choice == "auto"：不覆盖任何环境变量，跟随 .env。
+    # **评测脚本必须用 auto**，否则会出现「用 A 模型的 query 向量查 B 模型的索引」，
+    # 检索结果全 0 而不报错——实测踩过。
     from legalqa.llm_factory import get_embeddings
 
     return get_embeddings()
@@ -305,8 +293,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--corpus", default="data/corpus/all.jsonl")
     parser.add_argument("--index", default="data/index/all")
     parser.add_argument(
-        "--embedder", default="hash", choices=["hash", "ollama", "hf"],
-        help="hash=离线验证链路；ollama=本地 bge-m3；hf=sentence-transformers",
+        "--embedder", default="hash",
+        choices=["auto", "hash", "ollama", "dashscope", "hf"],
+        help="auto=跟随 .env；hash=离线验证；ollama=本地 bge-m3；dashscope=云端",
     )
     parser.add_argument("--provider", choices=["ollama", "openai"])
     parser.add_argument("--model")

@@ -58,7 +58,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="检索层评测")
     parser.add_argument("--cases", default="data/eval/synthetic.jsonl")
     parser.add_argument("--index", default="data/index/all")
-    parser.add_argument("--embedder", default="ollama", choices=["hash", "ollama", "hf"])
+    parser.add_argument("--embedder", default="auto", choices=["auto", "hash", "ollama", "dashscope", "hf"],
+                        help="auto=跟随 .env（必须和建索引时一致，否则检索全 0）")
     parser.add_argument("--topk", type=int, default=0, help="默认用 config.RAG_TOP_K")
     parser.add_argument("--show-failures", type=int, default=8)
     parser.add_argument("--rerank", action="store_true", help="开启 LLM 重排")
