@@ -8,12 +8,13 @@
 
 | 指标 | 结果 | 数据 |
 |---|---|---|
-| 单元/属性测试 | **449 passed** | `pytest tests/ -q` |
+| 单元/属性测试 | **454 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
 | 100 条合成端到端 | **89/100** | `data/eval/qwen37_fact_100.json` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
 | 引用可溯源 | 97%→98%（裸引修复后；剩 2 条真编造） | 见上 |
 | 免责声明 | 100% | 见上 |
+| Web 前端 | FastAPI SSE + Vue 3（聊天/流式/法条引用侧栏/历史会话） | `frontend/`、`legalqa/api.py` |
 
 > 100 条合成集有 15% 的单条翻转、±1~2pt 总数噪声；89 与 84 的差异不要当精确结论。合成金标已做过一轮审计（E15），仍不是人工标注。
 
@@ -70,11 +71,36 @@ cp .env.example .env
 
 索引与 `.env` 不入库：`data/index/` 可用 `scripts/ingest_folder.py` 重建；`.env` 见 `.env.example`。
 
+## Web 前端（FastAPI + Vue 3）
+
+```bash
+# 安装 Web 依赖
+./.venv/Scripts/python.exe -m pip install -e ".[web]" \
+    -i https://mirrors.aliyun.com/pypi/simple
+
+# 启动 API（同时托管 frontend/dist）
+./.venv/Scripts/python.exe -m uvicorn legalqa.api:app \
+    --host 127.0.0.1 --port 8000
+
+# 前端开发模式（另开终端；Vite 代理 /api → 8000）
+cd frontend
+npm install --registry=https://registry.npmmirror.com
+npm run dev            # http://localhost:5173
+
+# 生产构建：构建后直接访问 http://127.0.0.1:8000
+npm run build
+```
+
+- `POST /api/chat`：SSE，事件类型 `status / delta / reset / replace / citations / meta / done / error`
+- `GET /api/health`：健康检查
+- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；聊天流式、法条引用卡片/原文侧栏、历史会话（localStorage）、移动端适配
+- API Key 只在服务端 `.env`，前端不接触密钥
+
 ## 已知限制
 
 - 100 条剩余 11 条失败：2 条模型显式编造条号（79/66）、2 条检索到没引、4 条模型工具 query 漏事实、2 条近邻排序、1 条语义 gap。
 - 合成金标是弱标签；34 条手工集样本小。
-- 当前只有 CLI 与评测脚本，**没有前端**。
+- Web MVP 没有登录、多租户、限流与会话落库（历史存在浏览器 localStorage；服务端无状态）。
 - 阶段 0 是只读问答：不写文件、不调外部业务系统；阶段 1 的审批/写操作字段只预留未接线。
 
 ## 文档
@@ -85,6 +111,6 @@ cp .env.example .env
 
 ## 下一步
 
-1. 前端 MVP：聊天界面 + 法条引用卡片/原文侧栏 + 流式输出 + 历史会话（见前端方案）。
-2. 剩余 11 条逐案修复；不再做通用 prompt/补召回/换模型实验。
-3. 评测集扩到人工标注；补多轮/中断场景。
+1. Web 生产化：会话落库（SQLite/Postgres）、登录/限流、部署脚本。
+2. 前端补充：法条库浏览、评测看板、引用点击定位、反馈采集。
+3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。
