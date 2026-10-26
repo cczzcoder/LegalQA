@@ -1,24 +1,21 @@
 import { defineStore } from 'pinia'
 
-const STORAGE_KEY = 'legalmind.sessions.v1'
-
 function uid() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function loadSessions() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    const data = raw ? JSON.parse(raw) : []
-    return Array.isArray(data) ? data : []
-  } catch {
-    return []
+async function jsonOrError(response) {
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const detail = data?.detail
+    throw new Error(typeof detail === 'string' ? detail : `HTTP ${response.status}`)
   }
+  return data
 }
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
-    sessions: loadSessions(),
+    sessions: [],
     currentId: null,
     messages: [],
     citations: [],
@@ -27,6 +24,7 @@ export const useChatStore = defineStore('chat', {
     streaming: false,
     error: '',
     controller: null,
+    ready: false,
   }),
 
   getters: {
@@ -34,47 +32,81 @@ export const useChatStore = defineStore('chat', {
   },
 
   actions: {
-    persist() {
-      if (!this.currentId) return
-      const firstUser = this.messages.find((message) => message.role === 'user')
-      const session = {
-        id: this.currentId,
-        title: (firstUser?.content || '新对话').replace(/\s+/g, ' ').slice(0, 26),
-        updatedAt: Date.now(),
-        messages: this.messages,
-        citations: this.citations,
-      }
-      const index = this.sessions.findIndex((item) => item.id === this.currentId)
-      if (index >= 0) this.sessions[index] = session
-      else this.sessions.unshift(session)
-      this.sessions = this.sessions.slice(0, 20)
+    async loadSessions() {
+      const response = await fetch('/api/sessions', { credentials: 'include' })
+      this.sessions = await jsonOrError(response)
+    },
+
+    async createSession() {
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      })
+      const session = await jsonOrError(response)
+      this.currentId = session.id
+      this.messages = []
+      this.citations = []
+      this.activeCitation = -1
+      await this.loadSessions()
+      return session.id
+    },
+
+    async init() {
+      if (this.ready) return
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.sessions))
-      } catch {
-        /* 隐私模式/配额满时忽略 */
+        await this.loadSessions()
+        if (this.sessions.length) await this.openSession(this.sessions[0].id)
+        else await this.createSession()
+        this.ready = true
+      } catch (error) {
+        this.error = error.message || '加载会话失败'
       }
     },
 
-    newChat() {
+    reset() {
       this.stop()
-      this.currentId = uid()
+      this.sessions = []
+      this.currentId = null
       this.messages = []
       this.citations = []
       this.activeCitation = -1
       this.status = ''
       this.error = ''
+      this.ready = false
     },
 
-    openSession(id) {
-      const session = this.sessions.find((item) => item.id === id)
-      if (!session) return
+    async newChat() {
       this.stop()
-      this.currentId = id
-      this.messages = JSON.parse(JSON.stringify(session.messages || []))
-      this.citations = session.citations || []
-      this.activeCitation = -1
-      this.status = ''
       this.error = ''
+      try {
+        await this.createSession()
+      } catch (error) {
+        this.error = error.message || '创建会话失败'
+      }
+    },
+
+    async openSession(id) {
+      this.stop()
+      this.error = ''
+      try {
+        const response = await fetch(`/api/sessions/${id}`, { credentials: 'include' })
+        const data = await jsonOrError(response)
+        this.currentId = data.id
+        this.messages = (data.messages || []).map((message) => ({
+          ...message,
+          id: message.id || uid(),
+          citations: message.citations || [],
+          meta: message.meta || null,
+        }))
+        const last = [...this.messages].reverse().find((m) => m.role === 'assistant' && m.citations?.length)
+        this.citations = last?.citations || []
+        this.activeCitation = -1
+        this.status = ''
+      } catch (error) {
+        this.error = error.message || '打开会话失败'
+      }
     },
 
     showCitations(citations, index = -1) {
@@ -126,12 +158,15 @@ export const useChatStore = defineStore('chat', {
       const query = String(text || '').trim()
       if (!query || this.streaming) return
 
-      if (!this.currentId) this.currentId = uid()
       this.error = ''
-      const history = this.messages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      }))
+      if (!this.currentId) {
+        try {
+          await this.createSession()
+        } catch (error) {
+          this.error = error.message || '创建会话失败'
+          return
+        }
+      }
 
       this.messages.push({ role: 'user', content: query, id: uid() })
       this.messages.push({
@@ -149,12 +184,12 @@ export const useChatStore = defineStore('chat', {
       this.streaming = true
       this.controller = new AbortController()
 
-      const turnId = Math.max(this.messages.filter((m) => m.role === 'user').length - 1, 0)
       try {
-        const response = await fetch('/api/chat', {
+        const response = await fetch(`/api/sessions/${this.currentId}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, history, turn_id: turnId }),
+          credentials: 'include',
+          body: JSON.stringify({ query }),
           signal: this.controller.signal,
         })
         if (!response.ok) {
@@ -193,7 +228,11 @@ export const useChatStore = defineStore('chat', {
         this.streaming = false
         this.controller = null
         if (this.status !== 'error') this.status = ''
-        this.persist()
+        try {
+          await this.loadSessions()
+        } catch {
+          /* 列表刷新失败不影响当前对话 */
+        }
       }
     },
   },

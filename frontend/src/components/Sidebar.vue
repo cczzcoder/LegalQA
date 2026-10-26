@@ -37,9 +37,14 @@
         @click="$emit('open', session.id)"
       >
         <span class="session-title">{{ session.title }}</span>
-        <small>{{ formatDate(session.updatedAt) }}</small>
+        <small>{{ formatDate(session.updated_at) }}</small>
       </button>
     </section>
+
+    <div v-if="username" class="side-user">
+      <span class="user-name">{{ username }}</span>
+      <button class="logout-button" @click="$emit('logout')">退出</button>
+    </div>
 
     <div class="side-foot">
       回答仅供参考，不构成正式法律意见。<br />
@@ -53,10 +58,11 @@ import { Plus } from '@element-plus/icons-vue'
 import examples from '../legalExamples'
 
 defineProps({
+  username: { type: String, default: '' },
   sessions: { type: Array, default: () => [] },
   activeId: { type: String, default: '' },
 })
-defineEmits(['new', 'example', 'open', 'close'])
+defineEmits(['new', 'example', 'open', 'close', 'logout'])
 
 function formatDate(timestamp) {
   if (!timestamp) return ''

@@ -1,13 +1,20 @@
 <template>
-  <div class="app-shell">
+  <div v-if="!auth.ready" class="boot-screen">
+    <div class="boot-mark">法</div>
+    <p>正在校验登录状态…</p>
+  </div>
+  <LoginView v-else-if="!auth.user" />
+  <div v-else class="app-shell">
     <Sidebar
       class="sidebar"
       :class="{ open: sidebarOpen }"
+      :username="auth.user?.username || ''"
       :sessions="store.sessions"
       :active-id="store.currentId"
       @new="onSidebarNew"
       @example="onSidebarExample"
       @open="onSidebarOpen"
+      @logout="onLogout"
       @close="sidebarOpen = false"
     />
 
@@ -85,9 +92,12 @@ import Sidebar from './components/Sidebar.vue'
 import ChatMessage from './components/ChatMessage.vue'
 import CitationPanel from './components/CitationPanel.vue'
 import Composer from './components/Composer.vue'
+import LoginView from './components/LoginView.vue'
 import examples from './legalExamples'
+import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 
+const auth = useAuthStore()
 const store = useChatStore()
 const scrollEl = ref(null)
 const isMobile = ref(window.innerWidth < 1024)
@@ -137,6 +147,12 @@ function onSidebarOpen(id) {
   store.openSession(id)
 }
 
+async function onLogout() {
+  sidebarOpen.value = false
+  await auth.logout()
+  store.reset()
+}
+
 function scrollBottom() {
   nextTick(() => {
     if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight
@@ -148,9 +164,16 @@ watch(
   scrollBottom,
 )
 
-onMounted(() => {
-  if (!store.currentId && store.sessions.length) store.openSession(store.sessions[0].id)
-  else if (!store.currentId) store.newChat()
+watch(
+  () => auth.user,
+  async (user) => {
+    if (user) await store.init()
+    else store.reset()
+  },
+)
+
+onMounted(async () => {
+  await auth.me()
   window.addEventListener('resize', () => {
     isMobile.value = window.innerWidth < 1024
     if (!isMobile.value) showCitations.value = true
