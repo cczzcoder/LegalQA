@@ -1,0 +1,1067 @@
+[
+  {
+    "id": "s100-015",
+    "query": "我家盖房请人做设计，对方拖了好久才交图纸，还画错了好几处，这损失该不该让设计师赔？",
+    "passed": false,
+    "latency_ms": 28649,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8624,
+    "answer": "**结论**\n您可以要求设计师赔偿因拖延交付和图纸错误给您造成的实际损失，同时还可以要求其继续完善设计、\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国民法典",
+        "no": 776,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 800,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 777,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 929,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 781,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 881,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 780,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 775,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 772,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 72 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第800条"
+      }
+    ]
+  },
+  {
+    "id": "s100-025",
+    "query": "我家旁边小河发黑发臭，怀疑是附近厂子偷偷往里排污水，这事儿该找谁管？",
+    "passed": false,
+    "latency_ms": 33990,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8709,
+    "answer": "结论：现有资料未涵盖，无法依据提供的材料确定具体的法定管辖部门。\n\n依据：现有资料未涵盖《中华人民共和国水污染防治法》或《中华人民共和国环境保护法》中关于水污染监督管理职责及投诉举报途径的法条材料。\n\n建议：建议补充检索《中华人民共和国水污染防治法》中关于水污染监督管理体制的条文。在实际操作中，针对涉嫌偷排污水的行为，您通常可以向当地生态环境主管部门（环保局）投诉举报，或拨打12345政务服务便民热线反映该水污染线索。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 145,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 292,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1083,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 269,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1136,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1108,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 144,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 137,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1077,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1084,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "231 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第164条"
+      }
+    ]
+  },
+  {
+    "id": "s100-032",
+    "query": "我被劳务派遣公司派到一家厂里干活，结果厂里不按规矩来，害我受了伤，这钱该找谁赔？",
+    "passed": false,
+    "latency_ms": 27862,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8433,
+    "answer": "结论：现有资料不足。\n\n依据：当前系统未提供任何法律材料，且无法调用工具检索相关法律规定，因此无法依据具体法条为您界定劳务派遣单位与用工单位的赔偿责任。\n\n建议：还需要提供《中华人民共和国劳动合同法》、《工伤保险条例》等关于劳务派遣员工工伤赔偿责任划分及连带责任的现行有效法条材料，以便进行准确的法律分析。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1191,
+        "valid": true
+      },
+      {
+        "law": "工伤保险条例",
+        "no": 43,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1192,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 62,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 58,
+        "valid": true
+      },
+      {
+        "law": "最高人民法院关于审理劳动争议案件适用法律问题的解释（二）",
+        "no": 2,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法实施条例",
+        "no": 35,
+        "valid": true
+      },
+      {
+        "law": "工伤保险条例",
+        "no": 66,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "173 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《劳动合同法实施条例》第35条"
+      }
+    ]
+  },
+  {
+    "id": "s100-033",
+    "query": "我家孩子在海外学中文，老师主要教方言和繁体字，这样合规吗？",
+    "passed": false,
+    "latency_ms": 31062,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8452,
+    "answer": "我暂时无法组织出可靠回答。可以请您把问题拆得更具体一些吗？比如说明事情经过、涉及哪一方、您希望达成什么结果。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 11,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 19,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 15,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 2,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 12,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民族团结进步促进法",
+        "no": 15,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 3,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 6,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国国家通用语言文字法",
+        "no": 1,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 74 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《国家通用语言文字法》第22条"
+      }
+    ]
+  },
+  {
+    "id": "s100-036",
+    "query": "老板让我签了服务期协议，现在他不交社保，我辞职要赔钱吗？",
+    "passed": false,
+    "latency_ms": 51619,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.9541,
+    "answer": "我暂时无法组织出可靠回答。可以请您把问题拆得更具体一些吗？比如说明事情经过、涉及哪一方、您希望达成什么结果。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国劳动合同法实施条例",
+        "no": 26,
+        "valid": true
+      },
+      {
+        "law": "最高人民法院关于审理劳动争议案件适用法律问题的解释（二）",
+        "no": 19,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 22,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 25,
+        "valid": true
+      },
+      {
+        "law": "最高人民法院关于审理劳动争议案件适用法律问题的解释（二）",
+        "no": 12,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 90,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法实施条例",
+        "no": 16,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 23,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 38,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法实施条例",
+        "no": 18,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动法",
+        "no": 32,
+        "valid": true
+      },
+      {
+        "law": "最高人民法院关于审理劳动争议案件适用法律问题的解释（一）",
+        "no": 45,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动法",
+        "no": 98,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 74 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《劳动合同法实施条例》第26条"
+      }
+    ]
+  },
+  {
+    "id": "s100-074",
+    "query": "我家孩子学历史专业，想研究少数民族和汉族怎么慢慢变成一家人的，这方向现在好找工作吗？",
+    "passed": false,
+    "latency_ms": 37160,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7455,
+    "answer": "我暂时无法组织出可靠回答。可以请您把问题拆得更具体一些吗？比如说明事情经过、涉及哪一方、您希望达成什么结果。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国民族团结进步促进法",
+        "no": 25,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国宪法",
+        "no": 4,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国宪法",
+        "no": 122,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国宪法",
+        "no": 119,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民族团结进步促进法",
+        "no": 8,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国宪法",
+        "no": 118,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国宪法",
+        "no": 23,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民族团结进步促进法",
+        "no": 26,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动法",
+        "no": 10,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动法",
+        "no": 14,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民族团结进步促进法",
+        "no": 37,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民族团结进步促进法",
+        "no": 17,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 74 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": false,
+        "detail": "无关问题未明确说明缺少依据"
+      }
+    ]
+  },
+  {
+    "id": "s100-082",
+    "query": "我租的设备因为厂家问题合同黄了，老板让我赔钱，可这事儿跟他也有关系，我还得掏腰包吗？",
+    "passed": false,
+    "latency_ms": 47031,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.942,
+    "answer": "结论：现有资料未涵盖，无法直接判断您是否需要掏腰包赔偿。\n\n依据：现有资料未涵盖关于员工在履行职务过程中因第三方（厂家）原因导致合同解除时，对老板（用人单位或雇主）承担赔偿责任的具体法律规定（如《中华人民共和国劳动合同法》或《中华人民共和国民法典》中关于职务行为及损害赔偿的相关条文）。\n\n建议：建议您补充您与老板之间的法律关系性质（如劳动关系或劳务关系）、双方签订的合同条款（是否有关于设备租赁及违约赔偿的明确约定），以及您在租赁设备过程中是否存在故意或重大过失等具体信息，以便进行准确的法律分析。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国民法典",
+        "no": 747,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 742,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 743,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 741,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 577,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 740,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1191,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 62,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1192,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 170,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民用航空法",
+        "no": 190,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国劳动合同法",
+        "no": 95,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 593,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 523,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 522,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1175,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 590,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 581,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "270 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《民法典》第755条"
+      }
+    ]
+  },
+  {
+    "id": "s100-083",
+    "query": "我家地被矿上挖塌了，房子裂了缝，他们该赔我多少钱？",
+    "passed": false,
+    "latency_ms": 47267,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.7492,
+    "answer": "结论：现有资料未涵盖，无法确定具体赔偿金额。\n\n依据：根据工作要求，回答必须\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1252,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1070,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1253,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 237,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1258,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 295,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国矿产资源法实施条例",
+        "no": 46,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1235,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国矿产资源法实施条例",
+        "no": 37,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1184,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国矿产资源法实施条例",
+        "no": 35,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 936,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 833,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1182,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 327,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": false,
+        "detail": "仅 58 字，可能敷衍"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": false,
+        "detail": "该回答却拒答了"
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《矿产资源法实施条例》第73条"
+      }
+    ]
+  },
+  {
+    "id": "s100-089",
+    "query": "我家旁边工厂排污水把菜地搞坏了，找他们赔钱没谈拢，能直接去法院告吗？",
+    "passed": false,
+    "latency_ms": 50351,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.8934,
+    "answer": "结论：现有资料未涵盖。\n\n依据：因系统限制无法调用检索工具，现有资料未涵盖关于环境污染侵权纠纷起诉条件及程序的相关法条材料，无法为您提供明确的法律依据。\n\n建议：需要补充《中华人民共和国民法典》中关于环境污染和生态破坏责任的规定，以及《中华人民共和国民事诉讼法》关于起诉条件的相关法条材料，以便进一步分析您是否可以直接向法院提起诉讼。\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1077,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1233,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1229,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1232,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1073,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1075,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1078,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1074,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1080,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1230,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国生态环境法典",
+        "no": 1081,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 1231,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "187 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": false,
+        "detail": "未引用《生态环境法典》第1077条"
+      }
+    ]
+  },
+  {
+    "id": "s100-090",
+    "query": "我买房子还没办完过户，这期间租出去的房租该归谁？",
+    "passed": true,
+    "latency_ms": 28633,
+    "iterations": 2,
+    "channel": "dense",
+    "score": 0.9602,
+    "answer": "结论：房租（属于法定孳息）的归属以房屋是否“交付”为界限，而非是否“过户”。如果房屋已经实际交付给你，房租归你所有；如果尚未交付，房租归出卖人所有。双方另有约定的除外。\n\n依据：\n1. 《中华人民共和国民法典》第六百三十条（2020-05-28 版本）规定：“标的物在交付之前产生的孳息，归出卖人所有；交付之后产生的孳息，归买受人所有。但是，当事人另有约定的除外。”房屋租金属于法定孳息，在房屋买卖\n\n本回答仅供参考，不构成正式法律意见。",
+    "retrieved": [
+      {
+        "law": "中华人民共和国民法典",
+        "no": 630,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 321,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 720,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 758,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 757,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 458,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 412,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 430,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 452,
+        "valid": true
+      },
+      {
+        "law": "中华人民共和国民法典",
+        "no": 604,
+        "valid": true
+      }
+    ],
+    "backfilled": [],
+    "retrieval_coverage": {
+      "passed": true,
+      "detail": ""
+    },
+    "checks": [
+      {
+        "name": "免责声明",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "长度合理",
+        "passed": true,
+        "detail": "219 字"
+      },
+      {
+        "name": "引用可溯源",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "无幻觉条号",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "拒答恰当",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "命中期望法条",
+        "passed": true,
+        "detail": ""
+      }
+    ]
+  }
+]
