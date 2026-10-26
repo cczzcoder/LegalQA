@@ -1,11 +1,14 @@
 <template>
   <div class="app-shell">
     <Sidebar
+      class="sidebar"
+      :class="{ open: sidebarOpen }"
       :sessions="store.sessions"
       :active-id="store.currentId"
-      @new="store.newChat"
-      @example="onExample"
-      @open="store.openSession"
+      @new="onSidebarNew"
+      @example="onSidebarExample"
+      @open="onSidebarOpen"
+      @close="sidebarOpen = false"
     />
 
     <main class="main">
@@ -16,8 +19,8 @@
         </div>
         <div class="topbar-actions">
           <el-tag class="model-tag" effect="plain" type="info">qwen-plus · 法条 RAG</el-tag>
-          <el-button class="mobile-only" text @click="store.newChat">新对话</el-button>
-          <el-button class="mobile-only" text @click="showCitations = !showCitations">法条依据</el-button>
+          <el-button class="mobile-only" text @click="openSidebar">菜单</el-button>
+          <el-button class="mobile-only" text @click="toggleCitations">法条依据</el-button>
         </div>
       </header>
 
@@ -57,6 +60,11 @@
     </main>
 
     <div
+      v-if="isMobile && sidebarOpen"
+      class="sidebar-backdrop"
+      @click="sidebarOpen = false"
+    ></div>
+    <div
       v-if="isMobile && showCitations"
       class="panel-backdrop"
       @click="showCitations = false"
@@ -84,6 +92,7 @@ const store = useChatStore()
 const scrollEl = ref(null)
 const isMobile = ref(window.innerWidth < 1024)
 const showCitations = ref(!isMobile.value)
+const sidebarOpen = ref(false)
 
 const statusText = computed(() => {
   if (store.status === 'retrieving') return '正在检索法条…'
@@ -97,9 +106,35 @@ function onExample(question) {
   store.send(question)
 }
 
+function openSidebar() {
+  sidebarOpen.value = true
+  showCitations.value = false
+}
+
+function toggleCitations() {
+  showCitations.value = !showCitations.value
+  if (showCitations.value) sidebarOpen.value = false
+}
+
 function onCitationClick(citations, index) {
   store.showCitations(citations, index)
+  sidebarOpen.value = false
   showCitations.value = true
+}
+
+function onSidebarNew() {
+  sidebarOpen.value = false
+  store.newChat()
+}
+
+function onSidebarExample(question) {
+  sidebarOpen.value = false
+  onExample(question)
+}
+
+function onSidebarOpen(id) {
+  sidebarOpen.value = false
+  store.openSession(id)
 }
 
 function scrollBottom() {

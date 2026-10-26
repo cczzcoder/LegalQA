@@ -6,6 +6,7 @@
         <strong>LegalMind</strong>
         <span>中文法律问答</span>
       </div>
+      <button class="sidebar-close" aria-label="关闭菜单" @click="$emit('close')">×</button>
     </div>
 
     <el-button class="new-chat" type="primary" @click="$emit('new')">
@@ -55,7 +56,7 @@ defineProps({
   sessions: { type: Array, default: () => [] },
   activeId: { type: String, default: '' },
 })
-defineEmits(['new', 'example', 'open'])
+defineEmits(['new', 'example', 'open', 'close'])
 
 function formatDate(timestamp) {
   if (!timestamp) return ''

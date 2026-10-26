@@ -58,10 +58,29 @@ button {
 }
 
 .brand {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 2px 4px 10px;
+}
+
+.sidebar-close {
+  display: none;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #c5d4e2;
+  font-size: 17px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
 }
 
 .brand-mark {
@@ -871,7 +890,31 @@ button {
   }
 
   .sidebar {
-    display: none;
+    display: flex;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(86vw, 300px);
+    transform: translateX(-104%);
+    transition: transform 0.22s ease;
+    box-shadow: 20px 0 50px rgba(8, 24, 40, 0.25);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-close {
+    display: grid;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(8, 24, 40, 0.35);
   }
 
   .mobile-only {
