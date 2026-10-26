@@ -23,6 +23,9 @@ __all__ = [
     "extract_citations",
     "match_law_name",
     "law_reference_in",
+    "normalize_law",
+    "same_law",
+    "resolve_law",
     "safe_cosine",
     "minmax_normalize",
     "authority_weight",
@@ -105,39 +108,103 @@ def extract_all_article_nos(text: str) -> set[int]:
 
 
 _LAW_CITE = re.compile(r"《([^》]{2,40})》")
+_COMMON_PREFIX = "中华人民共和国"
+# 法名比较前统一去掉的包装字符：模型写司法解释时常加〈〉，语料里没有。
+_LAW_NOISE = str.maketrans("", "", "《》〈〉（）()【】[] \t\u3000")
+_SENTENCE_END = "。"
 
 
-def extract_citations(text: str) -> list[tuple[str | None, int]]:
+def normalize_law(name: str | None) -> str:
+    """法名归一化：去包装字符、去「中华人民共和国」前缀、去空白。
+
+    只做规范化，不做匹配。匹配规则在 `same_law` / `resolve_law` 里。
+    """
+    text = str(name or "").translate(_LAW_NOISE).strip()
+    if text.startswith(_COMMON_PREFIX):
+        text = text[len(_COMMON_PREFIX):]
+    return text
+
+
+def _bare_law_mentions(span: str, laws: Sequence[str]) -> list[tuple[int, str]]:
+    """在 span 里找裸法名（不带《》），返回 `(结束位置, 命中的名字)`。
+
+    同一结束位置取更长的名字：「劳动合同法实施条例」不能退化成「劳动合同法」。
+    """
+    best: dict[int, str] = {}
+    for law in laws:
+        if not law:
+            continue
+        candidates = {law}
+        if law.startswith(_COMMON_PREFIX):
+            candidates.add(law[len(_COMMON_PREFIX):])
+        for candidate in candidates:
+            if len(candidate) < 2:
+                continue
+            start = 0
+            while True:
+                index = span.find(candidate, start)
+                if index < 0:
+                    break
+                end = index + len(candidate)
+                current = best.get(end)
+                if current is None or len(candidate) > len(current):
+                    best[end] = candidate
+                start = index + 1
+    return list(best.items())
+
+
+def extract_citations(
+    text: str, law_names: Sequence[str] = ()
+) -> list[tuple[str | None, int]]:
     """抽取「法律名 + 条号」对。
 
     为什么不能只抽条号：模型会写「《刑法》第二百四十五条」，
     只抽条号会把它当成宪法第 245 条去校验，产生误报。
-    法律名取该条号**之前最近**的一个《》标记；没有则返回 None（承前省略）。
+
+    法律名取该条号**之前最近**的一个法名标记；没有则返回 None（承前省略）。
+    法名标记有三种，按「结束位置离条号最近」优先：
+
+      1. 《法律名》括号标记
+      2. 裸法名（需要传 `law_names`，否则做不到）
+      3. 「该法 / 本法」——指代同句内最近一个显式法名
+
+    第 2、3 条是实测补的：模型引用某条原文时，原文里会写
+    「依照劳动合同法第八十七条的规定」——只认《》会把 87 归到引文所属的
+    《劳动合同法实施条例》名下，于是误报「实施条例第 87 条不存在」。
     """
     if not text:
         return []
-    marks = [(m.start(), m.group(1)) for m in _LAW_CITE.finditer(text)]
+    marks = [(m.start(), m.end(), m.group(1)) for m in _LAW_CITE.finditer(text)]
     pairs: list[tuple[str | None, int]] = []
     for match in _ARTICLE_INNER.finditer(text):
         pos = match.start()
-        law: str | None = None
-        for start, name in marks:
-            if start >= pos:
-                break
-            # **法律名与条号之间不能跨句**。模型常写
-            # 「《关于确立劳动关系有关事项的通知》第一条规定……。依据《工伤保险条例》
-            # 第十四条」——如果只取「前面最近的《》」，第十四条会被归到《通知》名下，
-            # 溯源时就会误报「通知第 14 条未检索到」。
-            if "。" in text[start:pos]:
-                continue
-            law = name
+        # 法律名与条号之间不能跨句：早期实现把「《通知》……。依据《工伤保险条例》
+        # 第十四条」的 14 归到了《通知》名下，溯源时误报「通知第 14 条未检索到」。
+        start = text.rfind(_SENTENCE_END, 0, pos) + 1
+        mentions: list[tuple[int, str | None]] = []
+
+        for mark_start, mark_end, name in marks:
+            if start <= mark_start < pos and mark_end <= pos:
+                mentions.append((mark_end, name))
+        for rel_end, candidate in _bare_law_mentions(text[start:pos], law_names):
+            mentions.append((start + rel_end, candidate))
+
+        explicit = sorted(mentions, key=lambda item: (item[0], len(item[1] or "")))
+        last_law = explicit[-1][1] if explicit else None
+        for token in ("该法", "本法"):
+            index = text.rfind(token, start, pos)
+            if index >= 0:
+                mentions.append((index + len(token), last_law))
+
+        law = (
+            max(mentions, key=lambda item: (item[0], len(item[1] or "")))[1]
+            if mentions
+            else None
+        )
         number = cn_to_int(match.group(1))
         if number is not None:
             pairs.append((law, number))
     return pairs
-
-
-_COMMON_PREFIX = "中华人民共和国"
 
 # 提问里「XX法」「XX条例」这类法律名。用来识别「问的是语料外的法律」。
 # **贪婪匹配**：非贪婪会把「商标法实施条例」截成「商标法」，
@@ -198,13 +265,42 @@ def match_law_name(text: str, laws: Sequence[str]) -> str | None:
 
 
 def same_law(cited: str | None, known: str) -> bool:
-    """法律名宽松匹配：「宪法」与「中华人民共和国宪法」视为同一部。"""
-    if not cited:
+    """法律名宽松匹配：「宪法」与「中华人民共和国宪法」视为同一部。
+
+    **不能做双向子串**。实测两个方向都会出事：
+      - 「解释（一）」含有「民法典」→ 被认成民法典，回捞成民法典第 N 条
+      - 「劳动合同法」是「劳动合同法实施条例」的前缀 → 实施条例被当成法
+    所以只允许「归一化后相等」或「一方是另一方的后缀」（简称省略前缀），
+    且短名至少 2 个字符。
+    """
+    if not cited or not known:
         return True
-    a, b = cited.strip(), known.strip()
+    a, b = normalize_law(cited), normalize_law(known)
     if not a or not b:
         return True
-    return a in b or b in a
+    if a == b:
+        return True
+    # 短名只允许精确匹配：「合同法」是「劳动合同法」的后缀，但不是同一部法。
+    # 后缀匹配只用于「婚姻家庭编的解释（一）」这类较长的省略形式。
+    if min(len(a), len(b)) < 4:
+        return False
+    return a.endswith(b) or b.endswith(a)
+
+
+def resolve_law(cited: str | None, law_names: Sequence[str]) -> str | None:
+    """把回答里的法名解析成语料库中的全称。
+
+    优先精确匹配；否则找唯一的后缀匹配。**多义返回 None**——
+    法律场景宁可说「无法确定」，也不能随便挑一部（BC-24 同一个坑）。
+    """
+    if not cited or not law_names:
+        return None
+    target = normalize_law(cited)
+    exact = [name for name in law_names if normalize_law(name) == target]
+    if len(exact) == 1:
+        return exact[0]
+    hits = [name for name in law_names if same_law(cited, name)]
+    return hits[0] if len(hits) == 1 else None
 
 
 def safe_cosine(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:

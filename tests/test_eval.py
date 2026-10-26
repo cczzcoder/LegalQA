@@ -134,6 +134,33 @@ def test_hallucination_skips_without_index() -> None:
     assert check_hallucination("依据《劳动法》第九百九十九条。", None).passed
 
 
+def test_hallucination_handles_bare_law_inside_quoted_article() -> None:
+    """引文里的「依照劳动合同法第八十七条」不是实施条例第 87 条。"""
+    docs = [
+        {"id": "lf-87", "law_name": "中华人民共和国劳动合同法", "article_no": 87,
+         "article_label": "第八十七条", "doc_type": "法律", "text": "违法解除赔偿", "is_valid": True},
+        {"id": "lfr-25", "law_name": "中华人民共和国劳动合同法实施条例", "article_no": 25,
+         "article_label": "第二十五条", "doc_type": "行政法规", "text": "赔偿金与经济补偿", "is_valid": True},
+    ]
+    index = VectorIndex.build(docs, FakeEmbedder())
+    text = (
+        "《劳动合同法实施条例》第二十五条：“用人单位违反劳动合同法的规定解除或者终止"
+        "劳动合同，依照劳动合同法第八十七条的规定支付了赔偿金的，不再支付经济补偿。”"
+    )
+    assert check_hallucination(text, index).passed
+    # 真的引用了实施条例第 87 条时，仍然要判幻觉
+    assert not check_hallucination("《劳动合同法实施条例》第八十七条。", index).passed
+
+
+def test_expected_citation_matches_nested_interpretation() -> None:
+    """〈〉与否不能影响「是否引用了期望法条」的判断。"""
+    from legalqa.eval import check_expected_citation
+
+    text = "《最高人民法院关于适用〈中华人民共和国民法典〉婚姻家庭编的解释（一）》第二十三条"
+    expected = "最高人民法院关于适用中华人民共和国民法典婚姻家庭编的解释（一）"
+    assert check_expected_citation(text, expected, 23).passed
+
+
 # ---------------------------------------------------------------------------
 # 拒答
 # ---------------------------------------------------------------------------

@@ -23,6 +23,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+# Windows 的 GBK 管道控制台打印 ✓/✗ 会直接 UnicodeEncodeError 中断评测。
+# 统一按 UTF-8 输出，Git Bash / CI 都能读。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from langchain_core.messages import HumanMessage  # noqa: E402
 
 from legalqa.cli import build_embedder, build_llm, load_dotenv  # noqa: E402
@@ -61,6 +66,23 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
     # 里面的交叉引用（「依照本法第三十八条」）不是模型的引用行为，
     # 算进去会既冤枉系统、又可能让没引对的回答蒙对。
     checked = strip_backfill_appendix(answer)
+    # OutputGuard 会把「按条号回查到的」条文并进 retrieved_docs，并打上
+    # retrieval_source=backfill。这里拆成两份：
+    #   - all_docs：检索 + 回捞核验，用于「引用可溯源」的通过判定
+    #     （回捞已经确认条文存在，不该因为没进 top-6 就判失败）
+    #   - raw_docs：只有工具真正检索到的，用于「检索覆盖」与失败诊断
+    # 混在一起会让诊断把「回捞到的」误认为「检索到了」。
+    all_docs = list(state.retrieved_docs or [])
+    raw_docs = [d for d in all_docs if d.get("retrieval_source") != "backfill"]
+    backfilled_docs = [d for d in all_docs if d.get("retrieval_source") == "backfill"]
+
+    def _brief(doc: dict) -> dict:
+        return {
+            "law": doc.get("law_name", ""),
+            "no": doc.get("article_no"),
+            "valid": doc.get("is_valid", True),
+        }
+
     report = CaseReport(
         case_id=case["id"],
         query=case["query"],
@@ -69,19 +91,14 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         channel=state.retrieval_channel,
         score=state.rag_score,
         answer=answer,
-        retrieved=[
-            {
-                "law": d.get("law_name", ""),
-                "no": d.get("article_no"),
-                "valid": d.get("is_valid", True),
-            }
-            for d in (state.retrieved_docs or [])
-        ],
+        retrieved=[_brief(d) for d in raw_docs],
+        backfilled=[_brief(d) for d in backfilled_docs],
+        retrieval_coverage=check_traceability(checked, raw_docs),
     )
 
     report.checks.append(check_disclaimer(checked))
     report.checks.append(check_length(checked))
-    report.checks.append(check_traceability(checked, state.retrieved_docs))
+    report.checks.append(check_traceability(checked, all_docs))
     report.checks.append(check_hallucination(checked, index))
     report.checks.append(check_refusal(checked, bool(case.get("should_answer"))))
     if case.get("should_answer") and case.get("must_mention"):
@@ -189,6 +206,16 @@ def main() -> int:
         ok = sum(results)
         print(f"  {name:<12} {ok:>3}/{len(results):<3} {ok/len(results)*100:>6.1f}%")
 
+    # 检索覆盖与「引用可溯源」是两个指标：前者只看原始检索，后者允许回捞核验。
+    # 不参与通过判定，单独打印，避免把「没召回但回查确认存在」算成检索成功。
+    covered = sum(
+        1 for r in reports if r.retrieval_coverage and r.retrieval_coverage.passed
+    )
+    print(
+        f"  {'检索覆盖':<12} {covered:>3}/{len(reports):<3} "
+        f"{covered/len(reports)*100:>6.1f}%  （仅原始检索，不参与通过判定）"
+    )
+
     failures = [r for r in reports if not r.passed]
     if failures:
         print(f"\n失败用例 {len(failures)} 条:")
@@ -209,6 +236,15 @@ def main() -> int:
                 "score": round(r.score, 4),
                 "answer": r.answer,
                 "retrieved": r.retrieved,
+                "backfilled": r.backfilled,
+                "retrieval_coverage": (
+                    {
+                        "passed": r.retrieval_coverage.passed,
+                        "detail": r.retrieval_coverage.detail,
+                    }
+                    if r.retrieval_coverage
+                    else None
+                ),
                 "checks": [
                     {"name": c.name, "passed": c.passed, "detail": c.detail}
                     for c in r.checks

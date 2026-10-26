@@ -18,7 +18,7 @@ from typing import Any, Sequence
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from legalqa import config
-from legalqa.pure.retrieval import extract_citations, same_law
+from legalqa.pure.retrieval import extract_citations, resolve_law, same_law
 from legalqa.pure.window import last_human
 from legalqa.state import LegalState
 
@@ -220,15 +220,31 @@ def _render_backfill(docs: Sequence[dict[str, Any]]) -> str:
 def _merge_docs(
     docs: Sequence[dict[str, Any]], extra: Sequence[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """合并检索材料与回捞条文，按 id 去重，保留原顺序。"""
+    """合并检索材料与回捞条文，按 id 去重，保留原顺序。
+
+    **回捞条目必须打标 `retrieval_source="backfill"`。** 否则下游无法区分
+    「检索到的」和「按条号回查到的」：评测的「引用可溯源」会被回捞条目
+    抬成「引用在语料库里存在」，不再等于检索覆盖；失败诊断读 `retrieved`
+    也会把没召回的法条误认为召回了。
+    """
     merged: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for doc in [*docs, *extra]:
-        key = str(doc.get("id", "")) or f"{doc.get('law_name')}#{doc.get('article_no')}"
+
+    def key_of(doc: dict[str, Any]) -> str:
+        return str(doc.get("id", "")) or f"{doc.get('law_name')}#{doc.get('article_no')}"
+
+    for doc in docs:
+        key = key_of(doc)
         if key in seen:
             continue
         seen.add(key)
         merged.append(dict(doc))
+    for doc in extra:
+        key = key_of(doc)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append({**dict(doc), "retrieval_source": "backfill"})
     return merged
 
 
@@ -340,7 +356,11 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
     # 旧实现在 `allowed_nos` 为空时**整个跳过**——零检索、纯凭记忆作答的回答
     # 反而免检，正是最该查的一种。有索引就不存在「没法查」这个借口。
     if allowed_nos or index is not None:
-        for law, number in extract_citations(text):
+        # 传 law_names 才能识别裸法名（「依照劳动合同法第八十七条」）。
+        # 只认《》会把引文里的交叉引用归到引文所属的法律名下，实测误报过。
+        for law, number in extract_citations(
+            text, index.law_names if index is not None else ()
+        ):
             cited_law_in_batch = bool(law) and any(
                 same_law(law, known) for known in allowed_laws
             )
@@ -360,7 +380,9 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
             known_law: str | None = None
             law_in_corpus = False
             if law and index is not None:
-                known_law = next((n for n in index.law_names if same_law(law, n)), None)
+                # 必须取**唯一/最长**解析：`next(...)` 取首个命中会把
+                # 「…婚姻家庭编的解释（一）」解析成「民法典」。
+                known_law = resolve_law(law, index.law_names)
                 law_in_corpus = known_law is not None
 
             # ③ 语料库里根本没有这部法律（如《刑法》）→ 超出知识库，不算未溯源

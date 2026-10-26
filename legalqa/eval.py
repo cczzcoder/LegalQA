@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from legalqa.nodes.guards import DISCLAIMER
-from legalqa.pure.retrieval import extract_citations, same_law
+from legalqa.pure.retrieval import extract_citations, resolve_law, same_law
 
 __all__ = [
     "CheckResult",
@@ -68,7 +68,13 @@ class CaseReport:
     # 留证据。没有这两项，任何一次「为什么失败」都得重跑 6 分钟评测才能看，
     # 而重跑的结果和上一次不完全一样（并发 + 网络），根本没法逐条比对。
     answer: str = ""
+    # 只放**工具真正检索到的**材料。回捞条目单独放 backfilled，
+    # 这样诊断时能区分「检索到了」和「没检索到但回查确认存在」。
     retrieved: list[dict[str, Any]] = field(default_factory=list)
+    backfilled: list[dict[str, Any]] = field(default_factory=list)
+    # 检索覆盖：引用是否落在**原始检索材料**里。不参与通过判定，
+    # 只用来回答「检索层到底漏了多少」——这是和「引用是否可核验」不同的指标。
+    retrieval_coverage: CheckResult | None = None
 
     @property
     def passed(self) -> bool:
@@ -97,7 +103,10 @@ def check_length(text: str) -> CheckResult:
 
 
 def check_traceability(text: str, docs: Sequence[dict[str, Any]]) -> CheckResult:
-    """引用的条号是否都能在本次检索材料里找到。
+    """引用的条号是否都能在给定材料里找到。
+
+    `docs` 可以是「检索 + 回捞核验」的合并材料（通过判定用），也可以是
+    纯原始检索材料（`retrieval_coverage` 用）。两者语义不同，调用方明确传入。
 
     **必须按 (法律名, 条号) 成对判断。** 分开比会放过一类真实错误：
     材料里有《劳动法》第 38 条、《劳动合同法》第 44 条，回答引《劳动合同法》
@@ -117,7 +126,9 @@ def check_traceability(text: str, docs: Sequence[dict[str, Any]]) -> CheckResult
     # 按条号去重：同一部法律在回答里可能写成「劳动合同法」「中华人民共和国劳动合同法」
     # 两种形式，按字符串去重会重复列出。
     unverified: set[int] = set()
-    for law, number in extract_citations(text):
+    # 传 allowed_laws 才能识别裸法名（「依照劳动合同法第八十七条」）。
+    # sorted 保证解析结果可复现（set 的遍历顺序不稳定）。
+    for law, number in extract_citations(text, sorted(allowed_laws)):
         if law and not any(same_law(law, k) for k in allowed_laws):
             continue                       # 本批材料之外的法律，不归此项管
         if law is None:
@@ -147,12 +158,13 @@ def check_hallucination(text: str, index: Any) -> CheckResult:
 
     law_names = index.law_names
     fake: dict[int, str] = {}
-    for law, number in extract_citations(text):
+    for law, number in extract_citations(text, law_names):
         if not law:
             continue
-        matched = next((n for n in law_names if same_law(law, n)), None)
+        # 用唯一解析，不能 `next(...)`：嵌套解释名会被首个命中的「民法典」吃掉。
+        matched = resolve_law(law, law_names)
         if matched is None:
-            continue                       # 语料外法律，不算幻觉
+            continue                       # 语料外法律（或多义），不算幻觉
         if index.by_article(number, matched) is None:
             fake[number] = f"《{matched}》第{number}条"
 

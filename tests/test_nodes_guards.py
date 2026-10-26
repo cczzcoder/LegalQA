@@ -525,6 +525,42 @@ def test_backfill_reuses_earlier_resolution_for_bare_number() -> None:
     assert content.count("《中华人民共和国劳动合同法》第四十六条") == 1
 
 
+def test_backfill_does_not_misattribute_nested_interpretation() -> None:
+    """解释（二）第 10 条不能被回捞成民法典第 10 条。
+
+    旧实现用双向子串 + 首个命中：嵌套解释名里含「民法典」，
+    于是把解释的条号拿去查民法典，附录展示了一条无关条文。
+    """
+    docs = [
+        {"id": "m-1087", "law_name": "中华人民共和国民法典", "doc_type": "法律",
+         "article_no": 1087, "article_label": "第一千零八十七条",
+         "text": "离婚时，夫妻的共同财产由双方协议处理。", "is_valid": True,
+         "effective_date": "", "version_date": "2020-05-28", "source": "a.docx"},
+        {"id": "j-0010",
+         "law_name": "最高人民法院关于适用中华人民共和国民法典婚姻家庭编的解释（二）",
+         "doc_type": "司法解释", "article_no": 10, "article_label": "第十条",
+         "text": "夫妻以共同财产投资有限责任公司，并均登记为股东……", "is_valid": True,
+         "effective_date": "", "version_date": "2025-01-15", "source": "b.docx"},
+    ]
+    index = VectorIndex.build(docs, _FakeEmbedder())
+    answer = AIMessage(
+        id="a1",
+        content=(
+            "《最高人民法院关于适用〈中华人民共和国民法典〉婚姻家庭编的解释（二）》"
+            f"第十条规定了股权分割规则。{DISCLAIMER}"
+        ),
+    )
+    out = make_output_guard_node(index)(LegalState(messages=[answer]))
+    content = out["messages"][0].content
+
+    assert "解释（二）》第十条" in content
+    assert "第一千零八十七条" not in content
+    backfilled = [
+        d for d in out["retrieved_docs"] if d.get("retrieval_source") == "backfill"
+    ]
+    assert any(d.get("article_no") == 10 for d in backfilled), "回捞条目必须打标"
+
+
 def test_backfill_reports_ambiguous_number_honestly() -> None:
     """条号在多部法律中都有、回答又没写法律名 → 说「无法确定」，不能说「不存在」。
 

@@ -235,3 +235,112 @@ def test_extract_citations_same_sentence_multiple_articles() -> None:
     assert ("工伤保险条例", 14) in pairs
     assert ("工伤保险条例", 17) in pairs
     assert ("工伤保险条例", 37) in pairs
+
+
+# ---------------------------------------------------------------------------
+# 法名解析：嵌套解释 / 实施条例 / 裸法名（E14 回归）
+# ---------------------------------------------------------------------------
+def test_same_law_normalizes_nested_interpretation() -> None:
+    """模型写〈〉、语料不带〈〉，必须视为同一部。"""
+    from legalqa.pure.retrieval import same_law
+
+    cited = "最高人民法院关于适用〈中华人民共和国民法典〉婚姻家庭编的解释（一）"
+    known = "最高人民法院关于适用中华人民共和国民法典婚姻家庭编的解释（一）"
+    assert same_law(cited, known)
+    assert same_law(known, cited)
+
+
+def test_same_law_does_not_match_base_law_inside_interpretation() -> None:
+    """「解释（一）」里含「民法典」，但两者不是同一部法。
+
+    旧实现用双向子串，`same_law(解释（一）, 民法典)` 为 True，
+    于是解释第十条被回查成民法典第十条，附录给出无关条文。
+    """
+    from legalqa.pure.retrieval import same_law
+
+    cited = "最高人民法院关于适用〈中华人民共和国民法典〉婚姻家庭编的解释（一）"
+    assert not same_law(cited, "中华人民共和国民法典")
+    assert not same_law("中华人民共和国民法典", cited)
+
+
+def test_same_law_rejects_implementation_regulation_as_law() -> None:
+    """「劳动合同法」是「劳动合同法实施条例」的前缀，不能混为一谈。"""
+    from legalqa.pure.retrieval import same_law
+
+    assert not same_law("中华人民共和国劳动合同法实施条例", "中华人民共和国劳动合同法")
+    assert not same_law("劳动合同法", "中华人民共和国劳动合同法实施条例")
+
+
+def test_same_law_allows_suffix_abbreviation() -> None:
+    """允许省略前缀的简称，但不允许任意子串。"""
+    from legalqa.pure.retrieval import same_law
+
+    full = "最高人民法院关于适用中华人民共和国民法典婚姻家庭编的解释（一）"
+    assert same_law("婚姻家庭编的解释（一）", full)
+
+
+def test_same_law_does_not_match_short_suffix_as_law() -> None:
+    """「合同法」是「劳动合同法」的后缀，但两者不是同一部法。"""
+    from legalqa.pure.retrieval import same_law
+
+    assert not same_law("中华人民共和国合同法", "中华人民共和国劳动合同法")
+    assert not same_law("合同法", "劳动合同法")
+
+
+def test_resolve_law_returns_unique_and_refuses_ambiguous() -> None:
+    from legalqa.pure.retrieval import resolve_law
+
+    laws = [
+        "中华人民共和国劳动合同法",
+        "中华人民共和国劳动合同法实施条例",
+        "中华人民共和国商标法实施条例",
+    ]
+    assert resolve_law("劳动合同法", laws) == "中华人民共和国劳动合同法"
+    assert resolve_law("劳动合同法实施条例", laws) == "中华人民共和国劳动合同法实施条例"
+    assert resolve_law("实施条例", laws) is None      # 多义：不能随便挑
+    assert resolve_law("刑法", laws) is None          # 语料外
+
+
+def test_extract_citations_prefers_bare_law_inside_quoted_article() -> None:
+    """引文正文里的「劳动合同法第八十七条」不能被归到引文所属的实施条例。"""
+    from legalqa.pure.retrieval import extract_citations
+
+    laws = [
+        "中华人民共和国劳动合同法",
+        "中华人民共和国劳动合同法实施条例",
+    ]
+    text = (
+        "《劳动合同法实施条例》第二十五条：“用人单位违反劳动合同法的规定解除或者终止"
+        "劳动合同，依照劳动合同法第八十七条的规定支付了赔偿金的，不再支付经济补偿。”"
+    )
+    pairs = extract_citations(text, laws)
+    assert ("劳动合同法实施条例", 25) in pairs
+    assert ("劳动合同法", 87) in pairs
+    assert ("劳动合同法实施条例", 87) not in pairs
+
+
+def test_extract_citations_resolves_this_law() -> None:
+    """「该法第八十七条」指代同句最近一个显式法名。"""
+    from legalqa.pure.retrieval import extract_citations
+
+    text = "依据《中华人民共和国劳动合同法》第四十六条，后续按该法第八十七条处理。"
+    pairs = extract_citations(text)
+    assert ("中华人民共和国劳动合同法", 46) in pairs
+    assert ("中华人民共和国劳动合同法", 87) in pairs
+
+
+def test_extract_citations_keeps_outer_interpretation_name() -> None:
+    """外层解释名比括号内的「民法典」结束得更晚，必须选外层。"""
+    from legalqa.pure.retrieval import extract_citations, same_law
+
+    laws = [
+        "中华人民共和国民法典",
+        "最高人民法院关于适用中华人民共和国民法典婚姻家庭编的解释（二）",
+    ]
+    text = "《最高人民法院关于适用〈中华人民共和国民法典〉婚姻家庭编的解释（二）》第十条"
+    pairs = extract_citations(text, laws)
+    assert len(pairs) == 1
+    law, number = pairs[0]
+    assert number == 10
+    assert same_law(law, laws[1])
+    assert not same_law(law, laws[0])
