@@ -126,18 +126,27 @@ def check_traceability(text: str, docs: Sequence[dict[str, Any]]) -> CheckResult
     # 按条号去重：同一部法律在回答里可能写成「劳动合同法」「中华人民共和国劳动合同法」
     # 两种形式，按字符串去重会重复列出。
     unverified: set[int] = set()
+    last_law: str | None = None
     # 传 allowed_laws 才能识别裸法名（「依照劳动合同法第八十七条」）。
     # sorted 保证解析结果可复现（set 的遍历顺序不稳定）。
     for law, number in extract_citations(text, sorted(allowed_laws)):
-        if law and not any(same_law(law, k) for k in allowed_laws):
-            continue                       # 本批材料之外的法律，不归此项管
-        if law is None:
-            # 承前省略法律名：只看条号，放宽（否则「依据第四十七条」会大面积误报）
-            if number not in allowed_nos:
+        if law:
+            last_law = law
+            if not any(same_law(law, k) for k in allowed_laws):
+                continue                   # 本批材料之外的法律，不归此项管
+            if not any(
+                same_law(law, name) and no == number for name, no in allowed_pairs
+            ):
                 unverified.add(number)
             continue
-        if not any(same_law(law, name) and no == number for name, no in allowed_pairs):
-            unverified.add(number)
+        # 承前省略法律名：条号在本批材料里出现即可。
+        if number in allowed_nos:
+            continue
+        # 若最近显式法律名本身就不在本批材料里（如《刑法》），
+        # 这个裸条号属于知识库外引用，不该由「可溯源」判失败。
+        if last_law and not any(same_law(last_law, k) for k in allowed_laws):
+            continue
+        unverified.add(number)
     if unverified:
         shown = "、".join(f"第{n}条" for n in sorted(unverified)[:5])
         return CheckResult("引用可溯源", False, f"未溯源: {shown}")

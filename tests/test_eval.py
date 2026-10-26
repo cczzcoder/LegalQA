@@ -91,6 +91,22 @@ def test_traceability_ignores_external_law() -> None:
     assert result.passed
 
 
+def test_traceability_skips_bare_number_after_external_law() -> None:
+    """《刑法》第 133 条后的裸「第 133 条」仍属于外部法律，不该判未溯源。"""
+    docs = [{"law_name": "中华人民共和国劳动法", "article_no": 50}]
+    text = "醉驾的刑事责任规定在《中华人民共和国刑法》中，第一百三十三条之一。\n建议查第一百三十三条之一。"
+    assert check_traceability(text, docs).passed
+
+
+def test_traceability_bare_number_after_internal_law_still_checked() -> None:
+    """最近法是本批法律时，裸条号仍要核实，不能一律放过。"""
+    docs = [{"law_name": "中华人民共和国劳动法", "article_no": 50}]
+    text = "依据《中华人民共和国劳动法》第五十条。\n另见第六十条。"
+    result = check_traceability(text, docs)
+    assert not result.passed
+    assert "第60条" in result.detail
+
+
 def test_traceability_skips_without_docs() -> None:
     assert check_traceability("任意内容", []).passed
 

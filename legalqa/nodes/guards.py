@@ -217,6 +217,14 @@ def _render_backfill(docs: Sequence[dict[str, Any]]) -> str:
     )
 
 
+def _looks_like_law(name: str | None) -> bool:
+    """粗略判断一个名字是否像法律名，用于把裸条号归到知识库外法律。"""
+    return bool(name) and any(
+        token in str(name)
+        for token in ("法", "条例", "规定", "办法", "解释", "细则", "法典")
+    )
+
+
 def _merge_docs(
     docs: Sequence[dict[str, Any]], extra: Sequence[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -358,9 +366,12 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
     if allowed_nos or index is not None:
         # 传 law_names 才能识别裸法名（「依照劳动合同法第八十七条」）。
         # 只认《》会把引文里的交叉引用归到引文所属的法律名下，实测误报过。
+        last_law: str | None = None
         for law, number in extract_citations(
             text, index.law_names if index is not None else ()
         ):
+            if law:
+                last_law = law
             cited_law_in_batch = bool(law) and any(
                 same_law(law, known) for known in allowed_laws
             )
@@ -392,7 +403,19 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
 
             doc = index.by_article(number, known_law) if index is not None else None
 
-            # ④ 承前省略法律名 + 条号跨法重复（「第 36 条」在 20 部法里都有）：
+            # ④ 裸条号：沿用同段最近一个显式法律名。
+            # 模型常写「《语言法》第十一条……该法第二条」；`extract_citations`
+            # 因跨句返回 law=None，直接按条号全局查会因歧义漏掉，或把
+            # 知识库外法律（如《刑法》第 133 条）误报成「多部法律中都有」。
+            if doc is None and index is not None and law is None and last_law:
+                known_last = resolve_law(last_law, index.law_names)
+                if known_last is not None:
+                    doc = index.by_article(number, known_last)
+                elif _looks_like_law(last_law):
+                    external.add(f"《{last_law}》第{number}条")
+                    continue
+
+            # ⑤ 承前省略法律名 + 条号跨法重复（「第 36 条」在 20 部法里都有）：
             #    `by_article` 因歧义返回 None。按两个层次解析：
             #    a. 本回答前面已经解析过这个条号 → 沿用（模型最常这样写）
             #    b. 本轮材料限定的法源里**唯一**命中 → 认

@@ -561,6 +561,67 @@ def test_backfill_does_not_misattribute_nested_interpretation() -> None:
     assert any(d.get("article_no") == 10 for d in backfilled), "回捞条目必须打标"
 
 
+def test_backfill_resolves_bare_number_with_last_law() -> None:
+    """「《语言法》第 11 条……该法第 2 条」中的裸第 2 条要按最近法名回查。"""
+    docs = [
+        {"id": "lang-0011", "law_name": "中华人民共和国国家通用语言文字法",
+         "doc_type": "法律", "article_no": 11, "article_label": "第十一条",
+         "text": "学校及其他教育机构以国家通用语言文字为基本的教育教学用语用字。",
+         "is_valid": True, "effective_date": "", "version_date": "2025-12-27",
+         "source": "x.pdf"},
+        {"id": "lang-0002", "law_name": "中华人民共和国国家通用语言文字法",
+         "doc_type": "法律", "article_no": 2, "article_label": "第二条",
+         "text": "本法所称的国家通用语言文字是普通话和规范汉字。",
+         "is_valid": True, "effective_date": "", "version_date": "2025-12-27",
+         "source": "x.pdf"},
+    ]
+    index = VectorIndex.build(docs, _FakeEmbedder())
+    answer = AIMessage(
+        id="a1",
+        content=(
+            "《中华人民共和国国家通用语言文字法》第十一条规定学校以国家通用"
+            f"语言文字为基本教学用语。\n该法第二条明确适用范围。{DISCLAIMER}"
+        ),
+    )
+    out = make_output_guard_node(index)(
+        LegalState(
+            messages=[answer],
+            retrieved_docs=[
+                {"id": "lang-0011", "law_name": "中华人民共和国国家通用语言文字法",
+                 "article_no": 11}
+            ],
+        )
+    )
+
+    content = out["messages"][0].content
+    assert "《中华人民共和国国家通用语言文字法》第二条" in content
+    assert "无法确定" not in content
+    assert "查不到" not in content
+    assert any(
+        d.get("law_name") == "中华人民共和国国家通用语言文字法"
+        and d.get("article_no") == 2
+        for d in out["retrieved_docs"]
+    )
+
+
+def test_backfill_treats_bare_number_after_external_law_as_external() -> None:
+    """《刑法》第 133 条后的裸 133 属于知识库外，不能报「查不到/无法确定」。"""
+    index = _corpus_index()
+    answer = AIMessage(
+        id="a1",
+        content=(
+            "醉驾的刑事责任主要规定在《中华人民共和国刑法》中，尤其是"
+            f"第一百三十三条之一。\n建议再查第一百三十三条之一。{DISCLAIMER}"
+        ),
+    )
+    out = make_output_guard_node(index)(LegalState(messages=[answer]))
+
+    content = out["messages"][0].content
+    assert "查不到" not in content
+    assert "无法确定" not in content
+    assert "知识库之外" in content
+
+
 def test_backfill_reports_ambiguous_number_honestly() -> None:
     """条号在多部法律中都有、回答又没写法律名 → 说「无法确定」，不能说「不存在」。
 
