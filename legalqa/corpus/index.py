@@ -64,6 +64,9 @@ class VectorIndex:
             raise ValueError(f"docs({len(docs)}) 与 vectors({vectors.shape[0]}) 数量不一致")
         self._docs: list[dict[str, Any]] = list(docs)
         self._vectors: np.ndarray = _normalize(np.asarray(vectors, dtype=np.float32))
+        # meta.json 的内容（provider / model / dim / content hash）。
+        # 旧索引没有这些字段，读取时为空 dict 即可。
+        self._meta: dict[str, Any] = {}
         # 条号通道：(law_name, article_no) -> 下标
         # 只用 article_no 会在多法源时串号，所以必须带法律名
         self._by_article: dict[tuple[str, int], int] = {}
@@ -79,6 +82,10 @@ class VectorIndex:
     @property
     def docs(self) -> list[dict[str, Any]]:
         return self._docs
+
+    @property
+    def meta(self) -> dict[str, Any]:
+        return dict(self._meta)
 
     @property
     def dim(self) -> int:
@@ -261,28 +268,37 @@ class VectorIndex:
         return sorted({str(doc.get("law_name", "")) for doc in self._docs if doc.get("law_name")})
 
     # -- 持久化 -------------------------------------------------------
-    def fingerprint(self) -> str:
-        """内容指纹：条数相同但内容变了（例如换了语料），指纹会不同。
+    @staticmethod
+    def fingerprint_docs(docs: Sequence[dict[str, Any]]) -> str:
+        """内容指纹：**包含正文**，不是只哈希 id。
 
-        只比条数是不够的 —— 两份都是 143 条但内容完全不同的语料，
-        条数校验会通过，检索结果却对不上。
+        法律修订时 id（slug-条号）不变、正文变了；只比 id 会认为索引一致，
+        继续检索旧条文——这是法律场景不能接受的静默错误。
         """
-        ids = "|".join(str(doc.get("id", "")) for doc in self._docs)
-        return hashlib.sha256(ids.encode("utf-8")).hexdigest()[:16]
+        payload = "|".join(
+            f"{doc.get('id', '')}\x1f{doc.get('text', '')}" for doc in docs
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
-    def save(self, directory: str | Path) -> None:
+    def fingerprint(self) -> str:
+        return self.fingerprint_docs(self._docs)
+
+    def save(
+        self, directory: str | Path, meta: dict[str, Any] | None = None
+    ) -> None:
         target = Path(directory)
         target.mkdir(parents=True, exist_ok=True)
         np.save(target / "vectors.npy", self._vectors)
         (target / "docs.json").write_text(
             json.dumps(self._docs, ensure_ascii=False), encoding="utf-8"
         )
+        payload: dict[str, Any] = dict(meta or {})
+        # 基础字段由索引自己保证，不允许调用方覆盖
+        payload.update(
+            {"count": len(self._docs), "dim": self.dim, "fingerprint": self.fingerprint()}
+        )
         (target / "meta.json").write_text(
-            json.dumps(
-                {"count": len(self._docs), "dim": self.dim, "fingerprint": self.fingerprint()},
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
         )
 
     @classmethod
@@ -290,4 +306,11 @@ class VectorIndex:
         source = Path(directory)
         vectors = np.load(source / "vectors.npy")
         docs = json.loads((source / "docs.json").read_text(encoding="utf-8"))
-        return cls(docs, vectors)
+        index = cls(docs, vectors)
+        meta_path = source / "meta.json"
+        if meta_path.exists():
+            try:
+                index._meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                index._meta = {}
+        return index

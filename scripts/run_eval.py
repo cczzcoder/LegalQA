@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -119,7 +120,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="跑法律问答评测集")
     parser.add_argument("--cases", default="data/eval/cases.jsonl")
     parser.add_argument("--index", default="data/index/all")
-    parser.add_argument("--embedder", default="auto", choices=["auto", "hash", "ollama", "dashscope", "hf"],
+    parser.add_argument("--embedder", default="auto",
+                        choices=["auto", "hash", "ollama", "dashscope", "dashscope_native", "hf"],
                         help="auto=跟随 .env（必须和建索引时一致，否则检索全 0）")
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 条")
     parser.add_argument("--category", default="", help="只跑某一类")
@@ -149,6 +151,15 @@ def main() -> int:
 
     embedder = build_embedder(args.embedder)
     index = VectorIndex.load(ROOT / args.index)
+    meta_model = str(index.meta.get("embedder_model", ""))
+    current_model = os.environ.get("LEGALQA_EMBEDDING_MODEL", "")
+    if meta_model and current_model and meta_model != current_model:
+        print(
+            f"[x] 索引由 {meta_model} 构建，当前 embedding 是 {current_model}；"
+            "请重建索引或换 --index",
+            file=sys.stderr,
+        )
+        return 2
     llm = build_llm(argparse.Namespace(dry_run=False, provider=None, model=None))
 
     # 让实验可复现：E8 的 rerank 对比最初是临时脚本跑的，这里补上开关

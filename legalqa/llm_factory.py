@@ -25,10 +25,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import math
 import os
 import threading
+import time
+import urllib.error
+import urllib.request
 from typing import Any
 
 from legalqa import config
@@ -49,6 +53,17 @@ OPENAI_COMPATIBLE_PRESETS: dict[str, dict[str, str]] = {
     "zhipu": {"base_url": "https://open.bigmodel.cn/api/paas/v4", "model": "glm-4-plus"},
     "moonshot": {"base_url": "https://api.moonshot.cn/v1", "model": "moonshot-v1-8k"},
 }
+
+
+# DashScope 原生向量接口。与 OpenAI 兼容端点不同，原生接口支持
+# `text_type=query/document` 和 `instruct`，这是 text-embedding-v4 /
+# qwen3.7-text-embedding 提升检索效果的关键参数。
+DASHSCOPE_NATIVE_EMBEDDING_URL = (
+    "https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding"
+)
+LEGAL_QUERY_INSTRUCT = (
+    "Given a Chinese legal question, retrieve the statutory article that best answers it."
+)
 
 
 class LLMConfigError(RuntimeError):
@@ -257,6 +272,114 @@ class HashEmbeddings:
         return self._embed(text)
 
 
+class DashScopeNativeEmbeddings:
+    """DashScope 原生向量接口。
+
+    相比 OpenAI 兼容端点，原生接口多了两个对检索有实质影响的参数：
+
+      - `text_type`：query / document 分别生成「查询向量」和「文档向量」
+      - `instruct`：query 侧的检索指令（Qwen3-Embedding 的指令跟随能力）
+
+    官方文档：qwen3.7-text-embedding 相比 text-embedding-v4 在检索任务上
+    提升约 20%，指令遵循提升 16.4%。价格 0.5 元/百万 token。
+    """
+
+    def __init__(
+        self,
+        model: str,
+        api_key: str,
+        *,
+        url: str = DASHSCOPE_NATIVE_EMBEDDING_URL,
+        dimension: int = 1024,
+        query_instruct: str = LEGAL_QUERY_INSTRUCT,
+        batch_size: int = 10,
+        timeout: float = 60.0,
+        max_retries: int = 3,
+    ) -> None:
+        if not api_key:
+            raise LLMConfigError(
+                "provider=dashscope_native 需要 LEGALQA_LLM_API_KEY"
+            )
+        if not api_key.isascii():
+            raise LLMConfigError(
+                "LEGALQA_LLM_API_KEY 含非 ASCII 字符，"
+                "请确认已把 .env 里的占位文本替换成真实密钥。"
+            )
+        self.model = model
+        self.api_key = api_key
+        self.url = url
+        self.dimension = int(dimension)
+        self.query_instruct = query_instruct
+        self.batch_size = max(int(batch_size), 1)
+        self.timeout = float(timeout)
+        self.max_retries = max(int(max_retries), 1)
+
+    def _request(
+        self, texts: list[str], text_type: str, instruct: str | None = None
+    ) -> list[list[float]]:
+        parameters: dict[str, Any] = {
+            "text_type": text_type,
+            "dimension": self.dimension,
+        }
+        if instruct:
+            parameters["instruct"] = instruct
+        body = {
+            "model": self.model,
+            "input": {"texts": list(texts)},
+            "parameters": parameters,
+        }
+        payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        last_error: Exception | None = None
+
+        for attempt in range(self.max_retries):
+            request = urllib.request.Request(
+                self.url,
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                items = list((data.get("output") or {}).get("embeddings") or [])
+                if len(items) != len(texts):
+                    raise RuntimeError(
+                        f"向量化数量不匹配：送入 {len(texts)} 条，返回 {len(items)} 条"
+                    )
+                if all("text_index" in item for item in items):
+                    items.sort(key=lambda item: item["text_index"])
+                return [
+                    [float(value) for value in item.get("embedding") or []]
+                    for item in items
+                ]
+            except Exception as exc:          # 网络/限流/格式错误都重试
+                last_error = exc
+                if attempt + 1 < self.max_retries:
+                    time.sleep(1.5 * (attempt + 1))
+
+        detail = f"{type(last_error).__name__}: {last_error}"
+        if isinstance(last_error, urllib.error.HTTPError):
+            try:
+                detail += " " + last_error.read().decode("utf-8", "replace")[:300]
+            except Exception:
+                pass
+        raise LLMConfigError(f"DashScope embedding 失败：{detail}") from last_error
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), self.batch_size):
+            chunk = texts[start : start + self.batch_size]
+            vectors.extend(self._request(chunk, "document"))
+        return vectors
+
+    def embed_query(self, text: str) -> list[float]:
+        if not (text or "").strip():
+            return [0.0] * self.dimension
+        return self._request([text], "query", self.query_instruct)[0]
+
+
 def _build_embeddings() -> Any:
     """构建 Embedding 客户端。**不要在模块顶层调用。**"""
     provider = _env("LEGALQA_EMBEDDING_PROVIDER", "huggingface").lower()
@@ -264,6 +387,31 @@ def _build_embeddings() -> Any:
     if provider == "hash":
         logger.warning("使用 HashEmbeddings（仅测试用，无真实语义能力）")
         return HashEmbeddings()
+
+    if provider == "dashscope_native":
+        api_key = os.environ.get("LEGALQA_LLM_API_KEY", "").strip()
+        if not api_key:
+            raise LLMConfigError(
+                "provider=dashscope_native 的 embedding 需要 LEGALQA_LLM_API_KEY"
+            )
+        try:
+            dimension = int(_env("LEGALQA_EMBEDDING_DIMENSION", "1024"))
+        except ValueError:
+            dimension = 1024
+        try:
+            batch_size = int(_env("LEGALQA_EMBEDDING_BATCH", "10"))
+        except ValueError:
+            batch_size = 10
+        return DashScopeNativeEmbeddings(
+            _env("LEGALQA_EMBEDDING_MODEL", "qwen3.7-text-embedding"),
+            api_key,
+            url=_env("LEGALQA_EMBEDDING_NATIVE_URL", DASHSCOPE_NATIVE_EMBEDDING_URL),
+            dimension=dimension,
+            query_instruct=_env(
+                "LEGALQA_EMBEDDING_QUERY_INSTRUCT", LEGAL_QUERY_INSTRUCT
+            ),
+            batch_size=batch_size,
+        )
 
     if provider == "dashscope":
         # 云端向量化：本地零模型内存。8 GB 机器上 bge-m3 要占 1.16 GB，
@@ -332,7 +480,8 @@ def _build_embeddings() -> Any:
         )
 
     raise LLMConfigError(
-        f"未知的 LEGALQA_EMBEDDING_PROVIDER={provider!r}，可选：huggingface / hash"
+        f"未知的 LEGALQA_EMBEDDING_PROVIDER={provider!r}，"
+        "可选：huggingface / hash / dashscope / dashscope_native / ollama"
     )
 
 

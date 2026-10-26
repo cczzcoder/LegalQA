@@ -103,7 +103,7 @@ def test_score_is_raw_cosine_not_fused() -> None:
 
 def test_low_score_keeps_raw_value() -> None:
     """相关度低时也不能把 score 抬到阈值以上。"""
-    # 与三个正交向量都只有 0.577 的余弦，低于 0.7 阈值
+    # 与三个正交向量都只有 0.577 的余弦，低于当前阈值
     tool = make_tool(FakeEmbedder([1.0, 1.0, 1.0]))
     result = tool.run("某条正文")
     assert result.score == pytest.approx(0.5773, abs=1e-3)

@@ -143,10 +143,15 @@ LEGAL_TERMS: Final[tuple[str, ...]] = (
 #   相关最低 0.689 / 无关最高 0.617 / 间隔 0.072 → 定 0.64
 #   F1 平坦区 [0.62, 0.68]，取中部偏下
 #
+# 校准记录 3（qwen3.7-text-embedding，2026-10-26，23 部法律 4264 条 + 30 条 golden set）：
+#   相关最低 0.737 / 无关最高 0.639 / 间隔 0.098 → 定 0.73
+#   F1 平坦区 [0.64, 0.82]，取中部；检索 R@6 65.8% → 77.5%
+#
 # **多法源把分离间隔压窄了一半**（0.146 → 0.072）：语料越大，无关问题越容易
-# 撞上语义相近的条文。所以阈值必须随语料规模重新校准，不能沿用。
-# 改语料后跑：python scripts/calibrate_threshold.py --golden data/golden/multi_law.jsonl
-RAG_THRESHOLD: Final[float] = 0.64
+# 撞上语义相近的条文。所以阈值必须随语料规模/embedding 模型重新校准，不能沿用。
+# 改语料或换 embedding 后跑：
+#   python scripts/calibrate_threshold.py --golden data/golden/multi_law.jsonl
+RAG_THRESHOLD: Final[float] = 0.73
 RAG_TOP_K: Final[int] = 6               # 进 prompt 的条数
 # 实测依据（34 条评测集）：top-4 时「引用可溯源」只有 73.5%，
 # 失败用例的检索分数都在 0.6 以上——不是没检到，是检得不够全。

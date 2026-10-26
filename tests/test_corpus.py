@@ -259,6 +259,32 @@ def test_index_save_load(tmp_path: Path) -> None:
     assert loaded.by_article(1, "X法")["id"] == "a"
 
 
+def test_index_save_load_meta(tmp_path: Path) -> None:
+    """meta 里必须能读到建索引用的 embedding 模型，防止换模型后静默错配。"""
+    index = make_index()
+    index.save(
+        tmp_path / "idx",
+        meta={"embedder_model": "qwen3.7-text-embedding", "embedder_dimension": 3},
+    )
+    loaded = VectorIndex.load(tmp_path / "idx")
+
+    assert loaded.meta["embedder_model"] == "qwen3.7-text-embedding"
+    assert loaded.meta["dim"] == 3
+    assert loaded.meta["count"] == 3
+
+
+def test_fingerprint_changes_when_text_changes() -> None:
+    """法条正文改了但 id/条号不变时，指纹必须变化。"""
+    docs = make_docs()
+    baseline = VectorIndex.fingerprint_docs(docs)
+    changed = VectorIndex.fingerprint_docs(
+        [{**docs[0], "text": "修订后的正文"}, *docs[1:]]
+    )
+
+    assert baseline == VectorIndex.fingerprint_docs(make_docs())
+    assert changed != baseline
+
+
 def test_empty_index() -> None:
     index = VectorIndex([], np.zeros((0, 4), dtype=np.float32))
     assert len(index) == 0

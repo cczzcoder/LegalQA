@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -122,7 +123,10 @@ def main() -> int:
     parser.add_argument("--dir", default="data/laws")
     parser.add_argument("--out", default="data/corpus/all.jsonl")
     parser.add_argument("--index", default="data/index/all")
-    parser.add_argument("--embedder", default="auto", choices=["auto", "hash"])
+    parser.add_argument(
+        "--embedder", default="auto",
+        choices=["auto", "hash", "dashscope", "dashscope_native"],
+    )
     parser.add_argument("--full", action="store_true", help="强制全量重建索引（忽略已有向量）")
     args = parser.parse_args()
 
@@ -220,7 +224,12 @@ def main() -> int:
     out_path = ROOT / args.out
     count = write_jsonl(all_articles, out_path)
     laws = sorted({a.law_name for a in all_articles})
-    print(f"\n[+] 合计 {count} 条，{len(laws)} 部法律 → {out_path.relative_to(ROOT)}")
+    # --out 允许指向仓库外（例如 D:/pip-cache/tmp），不能假设一定在 ROOT 下
+    try:
+        out_shown = out_path.relative_to(ROOT)
+    except ValueError:
+        out_shown = out_path
+    print(f"\n[+] 合计 {count} 条，{len(laws)} 部法律 → {out_shown}")
     for law in laws:
         n = sum(1 for a in all_articles if a.law_name == law)
         print(f"      {law}: {n} 条")
@@ -232,6 +241,14 @@ def main() -> int:
         embedder = HashEmbeddings()
         print("\n[!] 使用 HashEmbeddings：只验证链路，检索质量不代表真实效果")
     else:
+        if args.embedder == "dashscope":
+            os.environ["LEGALQA_EMBEDDING_PROVIDER"] = "dashscope"
+            os.environ.setdefault("LEGALQA_EMBEDDING_MODEL", "text-embedding-v4")
+        elif args.embedder == "dashscope_native":
+            os.environ["LEGALQA_EMBEDDING_PROVIDER"] = "dashscope_native"
+            os.environ.setdefault(
+                "LEGALQA_EMBEDDING_MODEL", "qwen3.7-text-embedding"
+            )
         from legalqa.llm_factory import get_embeddings
 
         embedder = get_embeddings()
@@ -264,7 +281,14 @@ def main() -> int:
     index, stats = VectorIndex.build_incremental(
         docs, embedder, previous, batch_size=32, progress=_progress
     )
-    index.save(index_path)
+    index.save(
+        index_path,
+        meta={
+            "embedder_provider": os.environ.get("LEGALQA_EMBEDDING_PROVIDER", ""),
+            "embedder_model": os.environ.get("LEGALQA_EMBEDDING_MODEL", ""),
+            "embedder_dimension": index.dim,
+        },
+    )
     if previous is not None:
         print(
             f"[+] 复用 {stats.reused} 条，新增向量化 {stats.embedded} 条"

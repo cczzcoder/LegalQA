@@ -39,6 +39,11 @@ from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# Windows 的 GBK 管道控制台打印 ✅/⚠️ 会 UnicodeEncodeError 中断自检；
+# 统一按 UTF-8 输出，Git Bash / CI 都能读。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 class DryRunModel(BaseChatModel):
     """占位模型：**会真的发起一次工具调用**，用来验证整条循环。
@@ -99,15 +104,28 @@ def load_index(index_dir: Path, corpus_path: Path, embedder: Any) -> VectorIndex
 
     if (index_dir / "vectors.npy").exists():
         index = VectorIndex.load(index_dir)
-        expected = hashlib.sha256(
-            "|".join(str(d.get("id", "")) for d in docs).encode("utf-8")
-        ).hexdigest()[:16]
-        if len(index) == len(docs) and index.fingerprint() == expected:
+        expected = VectorIndex.fingerprint_docs(docs)
+        meta_model = str(index.meta.get("embedder_model", ""))
+        current_model = os.environ.get("LEGALQA_EMBEDDING_MODEL", "")
+        same_model = not (
+            meta_model and current_model and meta_model != current_model
+        )
+        if same_model and len(index) == len(docs) and index.fingerprint() == expected:
             return index
-        print(f"[!] 索引与语料不一致（{len(index)} 条 / {len(docs)} 条），自动重建")
+        print(
+            f"[!] 索引与语料/embedding 不一致"
+            f"（{len(index)} 条 / {len(docs)} 条，模型 {meta_model or '-'}），自动重建"
+        )
 
     index = VectorIndex.build(docs, embedder)
-    index.save(index_dir)
+    index.save(
+        index_dir,
+        meta={
+            "embedder_provider": os.environ.get("LEGALQA_EMBEDDING_PROVIDER", ""),
+            "embedder_model": os.environ.get("LEGALQA_EMBEDDING_MODEL", ""),
+            "embedder_dimension": index.dim,
+        },
+    )
     return index
 
 
@@ -125,6 +143,9 @@ def build_embedder(choice: str) -> Any:
     elif choice == "dashscope":
         os.environ["LEGALQA_EMBEDDING_PROVIDER"] = "dashscope"
         os.environ.setdefault("LEGALQA_EMBEDDING_MODEL", "text-embedding-v4")
+    elif choice == "dashscope_native":
+        os.environ["LEGALQA_EMBEDDING_PROVIDER"] = "dashscope_native"
+        os.environ.setdefault("LEGALQA_EMBEDDING_MODEL", "qwen3.7-text-embedding")
     # choice == "auto"：不覆盖任何环境变量，跟随 .env。
     # **评测脚本必须用 auto**，否则会出现「用 A 模型的 query 向量查 B 模型的索引」，
     # 检索结果全 0 而不报错——实测踩过。
@@ -265,19 +286,31 @@ def run_check(args: argparse.Namespace) -> int:
 
     # 3) Embedding（先按 --embedder 设定环境变量，否则会走默认 provider）
     print("\n── 3. Embedding ──")
+    emb_dim = 0
     try:
         emb = build_embedder(args.embedder)
         vector = emb.embed_query("测试")
-        print(f"  [OK] 维度 {len(vector)}")
+        emb_dim = len(vector)
+        print(f"  [OK] 维度 {emb_dim}")
     except Exception as exc:                        # noqa: BLE001
         print(f"  [X] {type(exc).__name__}: {str(exc)[:200]}")
         ok = False
 
-    # 4) 索引
+    # 4) 索引（维度/模型必须和当前 embedding 一致，否则检索结果无意义）
     print("\n── 4. 语料索引 ──")
     try:
         index = VectorIndex.load(ROOT / args.index)
         print(f"  [OK] {len(index)} 条 × {index.dim} 维")
+        meta_model = str(index.meta.get("embedder_model", ""))
+        current_model = os.environ.get("LEGALQA_EMBEDDING_MODEL", "")
+        if meta_model:
+            print(f"       索引模型={meta_model}")
+        if emb_dim and emb_dim != index.dim:
+            print(f"  [X] embedding 维度 {emb_dim} ≠ 索引维度 {index.dim}")
+            ok = False
+        if meta_model and current_model and meta_model != current_model:
+            print(f"  [X] 索引模型 {meta_model} ≠ 当前 {current_model}")
+            ok = False
     except Exception as exc:                        # noqa: BLE001
         print(f"  [X] {type(exc).__name__}: {str(exc)[:200]}")
         ok = False
@@ -293,9 +326,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--corpus", default="data/corpus/all.jsonl")
     parser.add_argument("--index", default="data/index/all")
     parser.add_argument(
-        "--embedder", default="hash",
-        choices=["auto", "hash", "ollama", "dashscope", "hf"],
-        help="auto=跟随 .env；hash=离线验证；ollama=本地 bge-m3；dashscope=云端",
+        "--embedder", default="auto",
+        choices=["auto", "hash", "ollama", "dashscope", "dashscope_native", "hf"],
+        help="auto=跟随 .env（默认，必须和建索引时一致）；hash=离线验证；"
+        "ollama=本地 bge-m3；dashscope=OpenAI 兼容端点；"
+        "dashscope_native=原生 text_type/instruct",
     )
     parser.add_argument("--provider", choices=["ollama", "openai"])
     parser.add_argument("--model")

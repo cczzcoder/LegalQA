@@ -515,7 +515,8 @@ def test_cli_dry_run_end_to_end() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "legalqa.cli",
          "--query", "宪法第一条是什么", "--dry-run"],
-        capture_output=True, text=True, cwd=str(root), timeout=180,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=str(root), timeout=180,
     )
     assert result.returncode == 0, result.stderr[-800:]
     assert "通道=exact" in result.stdout

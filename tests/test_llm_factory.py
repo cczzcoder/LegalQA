@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import subprocess
 import sys
@@ -205,3 +206,75 @@ def test_non_ascii_api_key_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(llm_factory.LLMConfigError, match="非 ASCII"):
         llm_factory._build_llm()
+
+
+# ---------------------------------------------------------------------------
+# DashScope 原生 embedding（text_type / instruct）
+# ---------------------------------------------------------------------------
+class _FakeResponse:
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+
+    def __enter__(self) -> "_FakeResponse":
+        return self
+
+    def __exit__(self, *args) -> bool:
+        return False
+
+    def read(self) -> bytes:
+        return json.dumps(self._payload).encode("utf-8")
+
+
+def test_dashscope_native_sends_text_type_and_instruct(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict] = []
+
+    def fake_urlopen(request, timeout=None):
+        body = json.loads(request.data.decode("utf-8"))
+        calls.append(body)
+        n = len(body["input"]["texts"])
+        # 故意逆序返回，验证按 text_index 排序
+        embeddings = [
+            {"text_index": i, "embedding": [float(i), 1.0]}
+            for i in range(n)
+        ][::-1]
+        return _FakeResponse({"output": {"embeddings": embeddings}, "usage": {}})
+
+    monkeypatch.setattr(llm_factory.urllib.request, "urlopen", fake_urlopen)
+    emb = llm_factory.DashScopeNativeEmbeddings(
+        "qwen3.7-text-embedding",
+        "sk-test",
+        dimension=2,
+        query_instruct="legal retrieval",
+    )
+
+    assert emb.embed_query("问题") == [0.0, 1.0]
+    assert emb.embed_documents(["a", "b"]) == [[0.0, 1.0], [1.0, 1.0]]
+
+    assert calls[0]["parameters"]["text_type"] == "query"
+    assert calls[0]["parameters"]["instruct"] == "legal retrieval"
+    assert calls[0]["parameters"]["dimension"] == 2
+    assert calls[1]["parameters"]["text_type"] == "document"
+    assert "instruct" not in calls[1]["parameters"]
+
+
+def test_dashscope_native_provider_builds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LEGALQA_EMBEDDING_PROVIDER", "dashscope_native")
+    monkeypatch.setenv("LEGALQA_LLM_API_KEY", "sk-test-key")
+    monkeypatch.setenv("LEGALQA_EMBEDDING_MODEL", "qwen3.7-text-embedding")
+    monkeypatch.setenv("LEGALQA_EMBEDDING_DIMENSION", "1024")
+
+    emb = llm_factory.get_embeddings()
+
+    assert isinstance(emb, llm_factory.DashScopeNativeEmbeddings)
+    assert emb.model == "qwen3.7-text-embedding"
+    assert emb.dimension == 1024
+
+
+def test_dashscope_native_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LEGALQA_EMBEDDING_PROVIDER", "dashscope_native")
+    monkeypatch.delenv("LEGALQA_LLM_API_KEY", raising=False)
+
+    with pytest.raises(llm_factory.LLMConfigError, match="LEGALQA_LLM_API_KEY"):
+        llm_factory._build_embeddings()
