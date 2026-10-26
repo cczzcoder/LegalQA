@@ -96,6 +96,14 @@ npm run build
 - 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；聊天流式、法条引用卡片/原文侧栏、历史会话（localStorage）、移动端适配
 - API Key 只在服务端 `.env`，前端不接触密钥
 
+移动端实测（764px 视口；桌面 >1024px 为侧栏 + 聊天 + 法条面板固定三栏）：
+
+<p>
+  <img src="docs/assets/web-chat.png" width="32%" alt="聊天与流式回答" />
+  <img src="docs/assets/web-sidebar.png" width="32%" alt="侧栏抽屉" />
+  <img src="docs/assets/web-citations.png" width="32%" alt="法条依据面板" />
+</p>
+
 ## 已知限制
 
 - 100 条剩余 11 条失败：2 条模型显式编造条号（79/66）、2 条检索到没引、4 条模型工具 query 漏事实、2 条近邻排序、1 条语义 gap。
