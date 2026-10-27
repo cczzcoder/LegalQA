@@ -166,8 +166,10 @@ LEGALQA_ADMIN_USERNAME=demo
 docker compose up -d --build    # 读取 .env（可用 .env.production.example 改出）
 ```
 
-- `Dockerfile`：多阶段构建（前端构建 + 后端运行时）；语料/评测打进镜像，`/app/data` 卷存运行数据；启动时按 `.env` 自动重建向量索引
-- `docker-compose.yml`：app + postgres(pg17) + redis；配了 `LEGALQA_DATABASE_URL`/`LEGALQA_REDIS_URL` 即启用外置存储与多 worker 共享限流
+- `Dockerfile`：多阶段构建（前端构建 + 后端运行时）；语料/评测打进镜像，运行期只挂 `index/imports/backups` 子目录（整卷挂 `/app/data` 会遮蔽 corpus）
+- `docker-compose.yml`：`name: legalqa`，app + postgres(pg17) + redis；配了 `LEGALQA_DATABASE_URL`/`LEGALQA_REDIS_URL` 即启用外置存储与多 worker 共享限流
+- 向量索引：首次启动会自动重建（需 embedding Key，几分钟）；已建好索引可挂宿主目录免重建：
+  `LEGALQA_INDEX_MOUNT=D:/git仓库/法律问答/data/index docker compose up -d`
 - 本地不跑 compose 时也可单独起数据库容器跑集成测试：
 
 ```bash

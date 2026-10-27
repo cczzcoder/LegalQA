@@ -1,6 +1,8 @@
 # 生产部署：app + Postgres + Redis。
 # 本地开发只跑 app（默认 SQLite + 进程内限流）也可以；配了 LEGALQA_DATABASE_URL
 # 才切 Postgres、LEGALQA_REDIS_URL 才切 Redis（多 worker 共享限流）。
+name: legalqa
+
 services:
   app:
     build: .
@@ -19,7 +21,12 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - legalqa-data:/app/data
+      # 只挂运行期写入的子目录：整卷挂 /app/data 会把镜像里的 corpus/eval 遮蔽掉
+      - legalqa-imports:/app/data/imports
+      - legalqa-backups:/app/data/backups
+      # 索引默认用命名卷（空则首次启动自动重建）；也可把宿主机索引目录传进来：
+      #   LEGALQA_INDEX_MOUNT=D:/git仓库/法律问答/data/index docker compose up -d
+      - ${LEGALQA_INDEX_MOUNT:-legalqa-index}:/app/data/index
     restart: unless-stopped
 
   postgres:
@@ -55,6 +62,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  legalqa-data:
+  legalqa-index:
+  legalqa-imports:
+  legalqa-backups:
   legalqa-pg:
   legalqa-redis:

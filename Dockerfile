@@ -1,5 +1,6 @@
 # LegalQA 生产镜像：先构建前端，再打包后端。
-# 数据（语料/评测）打进镜像；运行期产生的 app.db / 导入文件 / 备份放 /app/data 卷。
+# 语料/评测打进镜像；运行期写入目录（index/imports/backups）由 compose 单独挂卷，
+# **不要**把整卷挂到 /app/data——那会遮蔽镜像里的 corpus 与 eval。
 
 # -- 前端构建 ----------------------------------------------------------
 FROM node:22-alpine AS frontend
@@ -17,16 +18,16 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY legalqa ./legalqa
-RUN pip install --no-cache-dir -e ".[web]" -i https://mirrors.aliyun.com/pypi/simple
+RUN pip install --no-cache-dir -e ".[web,db]" -i https://mirrors.aliyun.com/pypi/simple
 
 COPY --from=frontend /build/frontend/dist ./frontend/dist
 COPY data/corpus ./data/corpus
 COPY data/eval ./data/eval
 COPY .env.example ./.env.example
 
-# 向量索引不入镜像（体积大）：启动时按 .env 的 embedding 配置自动重建。
-RUN mkdir -p /app/data
-VOLUME ["/app/data"]
+# 向量索引不入镜像（体积大）：首次启动按 .env 的 embedding 配置自动重建，
+# 或用 compose 的 LEGALQA_INDEX_MOUNT 把宿主机已建好的索引挂进来。
+RUN mkdir -p /app/data/index /app/data/imports /app/data/backups
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
