@@ -4,8 +4,9 @@
     <p>正在校验登录状态…</p>
   </div>
   <LoginView v-else-if="!auth.user" />
-  <div v-else class="app-shell">
+  <div v-else class="app-shell" :class="{ 'app-shell--wide': view !== 'chat' }">
     <Sidebar
+      v-if="view === 'chat'"
       class="sidebar"
       :class="{ open: sidebarOpen }"
       :username="auth.user?.username || ''"
@@ -22,67 +23,100 @@
       <header class="topbar">
         <div class="topbar-title">
           <span class="eyebrow">LEGALMIND</span>
-          <h1>把问题说清楚，我们把法条找出来</h1>
+          <h1>{{ viewTitle }}</h1>
         </div>
         <div class="topbar-actions">
-          <el-tag class="model-tag" effect="plain" type="info">qwen-plus · 法条 RAG</el-tag>
-          <el-button class="mobile-only" text @click="openSidebar">菜单</el-button>
-          <el-button class="mobile-only" text @click="toggleCitations">法条依据</el-button>
+          <nav class="view-tabs" aria-label="视图切换">
+            <button
+              v-for="tab in tabs"
+              :key="tab.id"
+              :class="{ active: view === tab.id }"
+              @click="switchView(tab.id)"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
+          <el-tag v-if="view === 'chat'" class="model-tag" effect="plain" type="info">
+            qwen-plus · 法条 RAG
+          </el-tag>
+          <el-button
+            v-if="view === 'chat'"
+            class="mobile-only"
+            text
+            @click="openSidebar"
+          >菜单</el-button>
+          <el-button
+            v-if="view === 'chat'"
+            class="mobile-only"
+            text
+            @click="toggleCitations"
+          >法条依据</el-button>
+          <div v-if="view !== 'chat'" class="topbar-user">
+            <span class="topbar-username">{{ auth.user?.username }}</span>
+            <button class="topbar-logout" @click="onLogout">退出</button>
+          </div>
         </div>
       </header>
 
-      <section ref="scrollEl" class="chat-scroll">
-        <div v-if="!store.hasMessages" class="empty-state">
-          <div class="empty-mark">§</div>
-          <h2>用大白话描述你的处境</h2>
-          <p>系统检索中国现行法条，给出带引用、带版本、可溯源的参考回答。</p>
-          <div class="empty-examples">
-            <button
-              v-for="item in examples.slice(0, 4)"
-              :key="item.title"
-              @click="onExample(item.question)"
-            >
-              <span>{{ item.title }}</span>
-              <small>{{ item.question }}</small>
-            </button>
+      <template v-if="view === 'chat'">
+        <section ref="scrollEl" class="chat-scroll">
+          <div v-if="!store.hasMessages" class="empty-state">
+            <div class="empty-mark">§</div>
+            <h2>用大白话描述你的处境</h2>
+            <p>系统检索中国现行法条，给出带引用、带版本、可溯源的参考回答。</p>
+            <div class="empty-examples">
+              <button
+                v-for="item in examples.slice(0, 4)"
+                :key="item.title"
+                @click="onExample(item.question)"
+              >
+                <span>{{ item.title }}</span>
+                <small>{{ item.question }}</small>
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div v-else class="messages">
-          <ChatMessage
-            v-for="message in store.messages"
-            :key="message.id"
-            :message="message"
-            @citation-click="onCitationClick"
-          />
-          <div v-if="store.streaming" class="thinking">
-            <span class="thinking-dot"></span>
-            {{ statusText }}
+          <div v-else class="messages">
+            <ChatMessage
+              v-for="message in store.messages"
+              :key="message.id"
+              :message="message"
+              @citation-click="onCitationClick"
+            />
+            <div v-if="store.streaming" class="thinking">
+              <span class="thinking-dot"></span>
+              {{ statusText }}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <Composer :streaming="store.streaming" @send="store.send" @stop="store.stop" />
-      <div v-if="store.error" class="error-bar">{{ store.error }}</div>
+        <Composer :streaming="store.streaming" @send="store.send" @stop="store.stop" />
+        <div v-if="store.error" class="error-bar">{{ store.error }}</div>
+      </template>
+
+      <LawLibraryView v-else-if="view === 'laws'" />
+      <EvalDashboardView v-else />
     </main>
 
-    <div
-      v-if="isMobile && sidebarOpen"
-      class="sidebar-backdrop"
-      @click="sidebarOpen = false"
-    ></div>
-    <div
-      v-if="isMobile && showCitations"
-      class="panel-backdrop"
-      @click="showCitations = false"
-    ></div>
-    <CitationPanel
-      :citations="store.citations"
-      :active-index="store.activeCitation"
-      :open="showCitations"
-      @select="store.selectCitation"
-      @close="showCitations = false"
-    />
+    <template v-if="view === 'chat'">
+      <div
+        v-if="isMobile && sidebarOpen"
+        class="sidebar-backdrop"
+        @click="sidebarOpen = false"
+      ></div>
+      <div
+        v-if="isMobile && showCitations"
+        class="panel-backdrop"
+        @click="showCitations = false"
+      ></div>
+      <CitationPanel
+        :citations="store.citations"
+        :active-index="store.activeCitation"
+        :open="showCitations"
+        @select="store.selectCitation"
+        @close="showCitations = false"
+      />
+    </template>
   </div>
 </template>
 
@@ -93,6 +127,8 @@ import ChatMessage from './components/ChatMessage.vue'
 import CitationPanel from './components/CitationPanel.vue'
 import Composer from './components/Composer.vue'
 import LoginView from './components/LoginView.vue'
+import LawLibraryView from './components/LawLibraryView.vue'
+import EvalDashboardView from './components/EvalDashboardView.vue'
 import examples from './legalExamples'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
@@ -103,6 +139,21 @@ const scrollEl = ref(null)
 const isMobile = ref(window.innerWidth < 1024)
 const showCitations = ref(!isMobile.value)
 const sidebarOpen = ref(false)
+const view = ref('chat')
+
+const tabs = [
+  { id: 'chat', label: '问答' },
+  { id: 'laws', label: '法条库' },
+  { id: 'eval', label: '评测' },
+]
+
+const titles = {
+  chat: '把问题说清楚，我们把法条找出来',
+  laws: '法条库：先看原文，再谈适用',
+  eval: '评测看板：每一次改动都有据可查',
+}
+
+const viewTitle = computed(() => titles[view.value] || titles.chat)
 
 const statusText = computed(() => {
   if (store.status === 'retrieving') return '正在检索法条…'
@@ -110,6 +161,13 @@ const statusText = computed(() => {
   if (store.status === 'error') return '请求异常'
   return '正在分析问题…'
 })
+
+function switchView(next) {
+  if (view.value === next) return
+  view.value = next
+  sidebarOpen.value = false
+  showCitations.value = next === 'chat' && !isMobile.value
+}
 
 function onExample(question) {
   store.showCitations([], -1)
@@ -149,6 +207,7 @@ function onSidebarOpen(id) {
 
 async function onLogout() {
   sidebarOpen.value = false
+  view.value = 'chat'
   await auth.logout()
   store.reset()
 }
@@ -176,7 +235,12 @@ onMounted(async () => {
   await auth.me()
   window.addEventListener('resize', () => {
     isMobile.value = window.innerWidth < 1024
-    if (!isMobile.value) showCitations.value = true
+    if (isMobile.value) {
+      showCitations.value = false
+      sidebarOpen.value = false
+    } else if (view.value === 'chat') {
+      showCitations.value = true
+    }
   })
 })
 </script>

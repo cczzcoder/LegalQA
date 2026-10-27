@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,62 @@ from fastapi.testclient import TestClient
 
 import legalqa.api as api
 from legalqa.service import ChatEvent
+
+DOCS = [
+    {
+        "id": "labor-1",
+        "law_name": "中华人民共和国劳动合同法",
+        "doc_type": "法律",
+        "article_no": 10,
+        "article_label": "第十条",
+        "chapter": "第二章",
+        "section": "",
+        "text": "建立劳动关系，应当订立书面劳动合同。",
+        "is_valid": True,
+        "version_date": "2012-12-28",
+    },
+    {
+        "id": "civil-1",
+        "law_name": "中华人民共和国民法典",
+        "doc_type": "法律",
+        "article_no": 1165,
+        "article_label": "第一千一百六十五条",
+        "chapter": "第七章",
+        "section": "",
+        "text": "行为人因过错侵害他人民事权益造成损害的，应当承担侵权责任。",
+        "is_valid": True,
+        "version_date": "2020-05-28",
+    },
+]
+
+EVAL_CASES = [
+    {
+        "id": "c1",
+        "query": "试用期多久",
+        "passed": True,
+        "latency_ms": 1000,
+        "iterations": 2,
+        "channel": "dense",
+        "score": 0.8,
+        "answer": "回答一",
+        "retrieved": [],
+        "checks": [{"name": "引用可溯源", "passed": True, "detail": ""}],
+        "retrieval_coverage": {"passed": True, "detail": ""},
+    },
+    {
+        "id": "c2",
+        "query": "违法解除怎么赔",
+        "passed": False,
+        "latency_ms": 3000,
+        "iterations": 3,
+        "channel": "exact",
+        "score": 0.7,
+        "answer": "回答二",
+        "retrieved": [],
+        "checks": [{"name": "引用可溯源", "passed": False, "detail": "未检索到"}],
+        "retrieval_coverage": {"passed": False, "detail": "top-6 未覆盖"},
+    },
+]
 
 
 class FakeService:
@@ -36,7 +93,14 @@ class FakeService:
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(api, "get_service", lambda: FakeService())
-    app = api.create_app(tmp_path / "test.db")
+    docs = tmp_path / "docs.json"
+    docs.write_text(json.dumps(DOCS, ensure_ascii=False), encoding="utf-8")
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    (eval_dir / "qwen37_fact_100.json").write_text(
+        json.dumps(EVAL_CASES, ensure_ascii=False), encoding="utf-8"
+    )
+    app = api.create_app(tmp_path / "test.db", docs_path=docs, eval_dir=eval_dir)
     return TestClient(app)
 
 
@@ -111,3 +175,37 @@ def test_chat_requires_login(client: TestClient) -> None:
         "/api/sessions/nope/chat", json={"query": "测试"}
     )
     assert response.status_code == 401
+
+
+def test_law_library(client: TestClient) -> None:
+    catalog = client.get("/api/laws").json()
+    assert catalog["stats"]["total_laws"] == 2
+    assert catalog["stats"]["total_articles"] == 2
+
+    result = client.get(
+        "/api/laws/articles", params={"law": "劳动合同法", "q": "书面劳动合同"}
+    ).json()
+    assert result["total"] == 1
+    assert result["items"][0]["article_label"] == "第十条"
+
+    empty = client.get(
+        "/api/laws/articles", params={"law": "中华人民共和国刑法"}
+    ).json()
+    assert empty["total"] == 0
+
+
+def test_eval_dashboard(client: TestClient) -> None:
+    runs = client.get("/api/eval/runs").json()["runs"]
+    assert runs[0]["id"] == "qwen37_fact_100"
+    assert runs[0]["pass_rate"] == 0.5
+    assert runs[0]["pinned"] is True
+
+    detail = client.get("/api/eval/runs/qwen37_fact_100").json()
+    assert detail["passed"] == 1
+    assert [item["id"] for item in detail["failures"]] == ["c2"]
+
+    case = client.get("/api/eval/runs/qwen37_fact_100/cases/c2").json()
+    assert case["answer"] == "回答二"
+
+    assert client.get("/api/eval/runs/missing").status_code == 404
+    assert client.get("/api/eval/runs/qwen37_fact_100/cases/missing").status_code == 404

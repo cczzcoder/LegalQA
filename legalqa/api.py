@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from legalqa.library import EvalStore, LawCatalog
 from legalqa.service import get_service
 from legalqa.store import (
     COOKIE_NAME,
@@ -79,10 +80,16 @@ def current_user(request: Request) -> dict[str, Any]:
     return user
 
 
-def create_app(db_path: str | Path | None = None) -> FastAPI:
+def create_app(
+    db_path: str | Path | None = None,
+    docs_path: str | Path | None = None,
+    eval_dir: str | Path | None = None,
+) -> FastAPI:
     app = FastAPI(title="LegalMind API", version="0.2.0")
     app.state.db = Database(db_path or ROOT / "data/app.db")
     app.state.limiter = RateLimiter()
+    app.state.catalog = LawCatalog(docs_path)
+    app.state.evals = EvalStore(eval_dir)
 
     app.add_middleware(
         CORSMiddleware,
@@ -98,6 +105,48 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "service": "LegalMind"}
+
+    # -- 法条库浏览（公开只读） -----------------------------------------
+    @app.get("/api/laws")
+    def list_laws(request: Request) -> dict[str, Any]:
+        catalog: LawCatalog = request.app.state.catalog
+        try:
+            return {"stats": catalog.stats(), "laws": catalog.laws()}
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @app.get("/api/laws/articles")
+    def list_articles(
+        request: Request,
+        law: str | None = None,
+        q: str | None = None,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        catalog: LawCatalog = request.app.state.catalog
+        try:
+            return catalog.articles(law=law, q=q, offset=offset, limit=limit)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # -- 评测看板（公开只读，读 data/eval 历史结果） ---------------------
+    @app.get("/api/eval/runs")
+    def list_eval_runs(request: Request) -> dict[str, Any]:
+        return {"runs": request.app.state.evals.list_runs()}
+
+    @app.get("/api/eval/runs/{run_id}")
+    def eval_run_detail(run_id: str, request: Request) -> dict[str, Any]:
+        detail = request.app.state.evals.detail(run_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="评测结果不存在")
+        return detail
+
+    @app.get("/api/eval/runs/{run_id}/cases/{case_id}")
+    def eval_case_detail(run_id: str, case_id: str, request: Request) -> dict[str, Any]:
+        case = request.app.state.evals.case(run_id, case_id)
+        if case is None:
+            raise HTTPException(status_code=404, detail="评测用例不存在")
+        return case
 
     # -- 登录 / 注册 ---------------------------------------------------
     @app.post("/api/auth/register")

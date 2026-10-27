@@ -4,17 +4,17 @@
 
 核心约束：**法律场景不能编。** 引用必须能落到具体条文与版本；宁可说「没查到」，也不能编条号。
 
-## 当前状态（2026-10-26）
+## 当前状态（2026-10-27）
 
 | 指标 | 结果 | 数据 |
 |---|---|---|
-| 单元/属性测试 | **459 passed** | `pytest tests/ -q` |
+| 单元/属性测试 | **470 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
 | 100 条合成端到端 | **89/100** | `data/eval/qwen37_fact_100.json` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
 | 引用可溯源 | 97%→98%（裸引修复后；剩 2 条真编造） | 见上 |
 | 免责声明 | 100% | 见上 |
-| Web 前端 | FastAPI SSE + Vue 3（登录/会话落库/限流/法条引用侧栏） | `frontend/`、`legalqa/api.py` |
+| Web 前端 | FastAPI SSE + Vue 3（登录/会话落库/限流/引用侧栏/法条库/评测看板） | `frontend/`、`legalqa/api.py` |
 
 > 100 条合成集有 15% 的单条翻转、±1~2pt 总数噪声；89 与 84 的差异不要当精确结论。合成金标已做过一轮审计（E15），仍不是人工标注。
 
@@ -52,7 +52,7 @@ START → InputGuard → ContextCompress → Agent ⇄ ToolNode → OutputGuard 
 cp .env.example .env
 
 # 3) 测试
-./.venv/Scripts/python.exe -m pytest tests/ -q          # 459 passed
+./.venv/Scripts/python.exe -m pytest tests/ -q          # 470 passed
 
 # 4) 接入自检（LLM 连通性 / 工具调用 / embedding / 索引）
 ./.venv/Scripts/python.exe -m legalqa.cli --check
@@ -95,13 +95,17 @@ npm run build
   - 密码 PBKDF2-SHA256 加盐（200k 次）；登录令牌只存 SHA-256 哈希；httpOnly Cookie，7 天
 - 会话：`GET/POST /api/sessions`，`GET/DELETE /api/sessions/{id}`
 - 聊天：`POST /api/sessions/{id}/chat`，SSE，事件类型 `status / delta / reset / replace / citations / meta / done / error`
+- 法条库：`GET /api/laws`（目录与统计）、`GET /api/laws/articles?law=&q=&offset=&limit=`
+  - 支持按法律浏览、全文关键词（中文 bigram）、`第八十七条`/`87` 条号定位
+- 评测看板：`GET /api/eval/runs`、`GET /api/eval/runs/{id}`、`GET /api/eval/runs/{id}/cases/{case_id}`
+  - 只读 `data/eval/*.json`，不重跑模型；失败用例可展开看答案与检索材料
 - 健康检查：`GET /api/health`
 - 会话落库：SQLite `data/app.db`（用户、令牌、会话、消息、引用、meta）；服务端无状态，历史来自数据库
 - 限流（进程内滑动窗口，单进程 MVP）：
   - 聊天：默认 10 次/分钟、60 次/小时/用户
   - 登录：8 次/分钟/IP + 4 次/分钟/用户名；注册：5 次/分钟/IP
   - 环境变量见 `.env.example`；多 worker 部署时换 Redis
-- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；登录/注册、流式聊天、法条引用侧栏、服务端历史会话、移动端抽屉
+- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；登录/注册、流式聊天、法条引用侧栏、服务端历史会话、法条库浏览、评测看板、移动端抽屉
 - API Key 只在服务端 `.env`，前端不接触密钥
 
 移动端实测（764px 视口；桌面 >1024px 为侧栏 + 聊天 + 法条面板固定三栏）：
@@ -113,22 +117,28 @@ npm run build
   <img src="docs/assets/web-citations.png" width="24%" alt="法条依据面板" />
 </p>
 
+<p>
+  <img src="docs/assets/web-library.png" width="49%" alt="法条库浏览" />
+  <img src="docs/assets/web-eval.png" width="49%" alt="评测看板" />
+</p>
+
 ## 已知限制
 
 - 100 条剩余 11 条失败：2 条模型显式编造条号（79/66）、2 条检索到没引、4 条模型工具 query 漏事实、2 条近邻排序、1 条语义 gap。
 - 合成金标是弱标签；34 条手工集样本小。
 - Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流在进程内，多 worker 需换 Redis。
+- 法条库读 `data/index/qwen37/docs.json`（索引缺失时回落到 `data/corpus/all.jsonl`）；评测看板读 `data/eval/*.json`，两者都不调用模型。
 - 生产部署建议 HTTPS + `LEGALMIND_COOKIE_SECURE=1`，并补 CSRF token/反向代理限流。
 - 阶段 0 是只读问答：不写文件、不调外部业务系统；阶段 1 的审批/写操作字段只预留未接线。
 
 ## 文档
 
 - [阶段 0 架构设计](docs/阶段0-架构设计.md)：ADR、不变量、失效模式、压缩/检索/评测
-- [实验记录](docs/实验记录.md)：E1~E22，每条含动机/数据/结论
+- [实验记录](docs/实验记录.md)：E1~E23，每条含动机/数据/结论
 - `.env.example`：模型与 embedding 配置
 
 ## 下一步
 
 1. Web 生产化：Postgres/Redis、邮箱验证/找回密码、部署脚本与反向代理。
-2. 前端补充：法条库浏览、评测看板、引用点击定位、反馈采集。
+2. 前端增强：引用点击定位、用户反馈采集、评测批次对比。
 3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。
