@@ -6,18 +6,47 @@
         <span><strong>{{ stats.total_articles }}</strong>条条文</span>
         <span><strong>{{ stats.valid_articles }}</strong>条现行有效</span>
       </div>
-      <el-input
-        v-model="query"
-        class="library-search"
-        clearable
-        placeholder="搜关键词或条号：拖欠工资 / 第八十七条"
-        @input="onQueryInput"
-        @clear="reload"
-      />
+      <div class="library-controls">
+        <el-select
+          v-model="activeLaw"
+          class="law-select"
+          filterable
+          clearable
+          placeholder="选择法律（默认全部）"
+        >
+          <el-option label="全部法律" value="" />
+          <el-option
+            v-for="law in laws"
+            :key="law.name"
+            :label="law.name"
+            :value="law.name"
+          >
+            <div class="law-option">
+              <span>{{ law.name }}</span>
+              <em>{{ law.article_count }}</em>
+            </div>
+          </el-option>
+        </el-select>
+        <el-input
+          v-model="query"
+          class="library-search"
+          clearable
+          placeholder="搜关键词或条号：拖欠工资 / 第八十七条"
+          @input="onQueryInput"
+          @clear="reload"
+        />
+      </div>
     </div>
 
     <div class="library-body">
       <aside class="law-index">
+        <el-input
+          v-model="lawFilter"
+          class="law-filter"
+          size="small"
+          clearable
+          placeholder="过滤法律名称"
+        />
         <button
           class="law-index-item"
           :class="{ active: !activeLaw }"
@@ -27,7 +56,7 @@
           <small>{{ stats.total_articles }}</small>
         </button>
         <button
-          v-for="law in laws"
+          v-for="law in filteredLaws"
           :key="law.name"
           class="law-index-item"
           :class="{ active: activeLaw === law.name }"
@@ -37,6 +66,7 @@
           <span>{{ law.name }}</span>
           <small>{{ law.article_count }}</small>
         </button>
+        <div v-if="!filteredLaws.length" class="law-index-empty">没有匹配的法律</div>
       </aside>
 
       <div class="article-pane">
@@ -88,7 +118,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const stats = ref({ total_laws: 0, total_articles: 0, valid_articles: 0 })
 const laws = ref([])
@@ -98,8 +128,15 @@ const page = ref(1)
 const pageSize = 20
 const query = ref('')
 const activeLaw = ref('')
+const lawFilter = ref('')
 const loading = ref(true)
 const error = ref('')
+
+const filteredLaws = computed(() => {
+  const keyword = lawFilter.value.trim()
+  if (!keyword) return laws.value
+  return laws.value.filter((law) => law.name.includes(keyword))
+})
 
 let timer = null
 let requestSeq = 0
@@ -148,10 +185,10 @@ async function bootstrap() {
 }
 
 function selectLaw(name) {
-  if (activeLaw.value === name) return
   activeLaw.value = name
-  load(1)
 }
+
+watch(activeLaw, () => load(1))
 
 function onQueryInput() {
   clearTimeout(timer)

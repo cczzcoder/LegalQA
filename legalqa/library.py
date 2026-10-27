@@ -142,6 +142,11 @@ class LawCatalog:
             self._docs = [row for row in rows if row.get("law_name") and row.get("article_no")]
         return self._docs
 
+    def reload(self) -> None:
+        """文献入库后调用：清掉缓存，下次访问重新读文件。"""
+        self._docs = None
+        self._laws = None
+
     def laws(self) -> list[dict[str, Any]]:
         if self._laws is None:
             grouped: dict[str, dict[str, Any]] = {}

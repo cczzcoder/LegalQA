@@ -19,7 +19,7 @@ from legalqa.graph import LOOP, build_graph
 from legalqa.state import coerce_state
 from legalqa.tools.read_tool import ReadTool
 
-__all__ = ["ChatEvent", "LegalQAService", "get_service", "set_service"]
+__all__ = ["ChatEvent", "LegalQAService", "get_service", "set_service", "reload_service"]
 
 
 @dataclass
@@ -53,8 +53,19 @@ class LegalQAService:
             argparse.Namespace(dry_run=False, provider=None, model=None)
         )
         # 与当前评测基线一致：不做 LLM 重排、不做无条件补召回
+        self._mode = mode
         self.read_tool = ReadTool(self.index, self.embedder)
         self.app = build_graph(llm=self.llm, read_tool=self.read_tool, mode=mode)
+
+    def reload(self) -> None:
+        """文献入库后重载索引：语料变了就自动重建，并换掉工具与图里的旧引用。"""
+        self.index = load_index(
+            ROOT / "data/index/all",
+            ROOT / "data/corpus/all.jsonl",
+            self.embedder,
+        )
+        self.read_tool = ReadTool(self.index, self.embedder)
+        self.app = build_graph(llm=self.llm, read_tool=self.read_tool, mode=self._mode)
 
     # ------------------------------------------------------------------
     def _messages(self, query: str, history: Sequence[dict[str, Any]], turn_id: int):
@@ -195,3 +206,14 @@ def set_service(service: LegalQAService | None) -> None:
     global _service
     with _service_lock:
         _service = service
+
+
+def reload_service() -> bool:
+    """服务已初始化时重载索引（文献入库后调用）；未初始化返回 False。"""
+    global _service
+    with _service_lock:
+        running = _service
+    if running is None:
+        return False
+    running.reload()
+    return True

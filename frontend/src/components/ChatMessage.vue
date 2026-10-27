@@ -23,10 +23,49 @@
 
       <div v-if="message.role === 'assistant' && message.content" class="message-actions">
         <button class="text-button" @click="copy">{{ copied ? '已复制' : '复制回答' }}</button>
+        <button class="text-button" @click="feedbackOpen = true">反馈</button>
         <span class="message-meta" v-if="message.meta?.latency_ms">
           {{ (message.meta.latency_ms / 1000).toFixed(1) }}s
         </span>
       </div>
+
+      <el-dialog
+        v-model="feedbackOpen"
+        title="反馈这个问题"
+        width="min(92vw, 400px)"
+        :close-on-click-modal="false"
+      >
+        <div v-if="feedbackState === 'done'" class="feedback-done">
+          已收到你的反馈，谢谢！
+        </div>
+        <template v-else>
+          <p class="feedback-hint">反馈会连同当前回答一起提交，用于改进回答质量。</p>
+          <el-radio-group v-model="feedbackCategory" class="feedback-cats">
+            <el-radio value="引用错误">引用错误</el-radio>
+            <el-radio value="答案错误">答案错误</el-radio>
+            <el-radio value="条号不存在">条号不存在</el-radio>
+            <el-radio value="其他">其他</el-radio>
+          </el-radio-group>
+          <el-input
+            v-model="feedbackComment"
+            class="feedback-comment"
+            type="textarea"
+            :rows="3"
+            maxlength="1000"
+            placeholder="补充说明（选填）"
+          />
+          <p v-if="feedbackError" class="feedback-error">{{ feedbackError }}</p>
+          <div class="feedback-actions">
+            <el-button size="small" @click="feedbackOpen = false">取消</el-button>
+            <el-button
+              size="small"
+              type="primary"
+              :loading="feedbackState === 'sending'"
+              @click="submitFeedback"
+            >提交</el-button>
+          </div>
+        </template>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -34,12 +73,46 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { renderMarkdown } from '../markdown'
+import { useChatStore } from '../stores/chat'
 
 const props = defineProps({ message: { type: Object, required: true } })
 defineEmits(['citation-click'])
 
+const store = useChatStore()
 const html = computed(() => renderMarkdown(props.message.content))
 const copied = ref(false)
+
+const feedbackOpen = ref(false)
+const feedbackCategory = ref('引用错误')
+const feedbackComment = ref('')
+const feedbackState = ref('idle')
+const feedbackError = ref('')
+
+async function submitFeedback() {
+  feedbackState.value = 'sending'
+  feedbackError.value = ''
+  try {
+    const response = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        session_id: store.currentId,
+        message_id: props.message.id,
+        category: feedbackCategory.value,
+        comment: feedbackComment.value,
+      }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data.detail || `HTTP ${response.status}`)
+    }
+    feedbackState.value = 'done'
+  } catch (error) {
+    feedbackState.value = 'idle'
+    feedbackError.value = error.message || '提交失败，请稍后重试'
+  }
+}
 
 function shortLaw(name) {
   return String(name || '').replace('中华人民共和国', '')

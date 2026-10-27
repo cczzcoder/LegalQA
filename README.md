@@ -8,13 +8,13 @@
 
 | 指标 | 结果 | 数据 |
 |---|---|---|
-| 单元/属性测试 | **470 passed** | `pytest tests/ -q` |
+| 单元/属性测试 | **481 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
 | 100 条合成端到端 | **89/100** | `data/eval/qwen37_fact_100.json` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
 | 引用可溯源 | 97%→98%（裸引修复后；剩 2 条真编造） | 见上 |
 | 免责声明 | 100% | 见上 |
-| Web 前端 | FastAPI SSE + Vue 3（登录/会话落库/限流/引用侧栏/法条库/评测看板） | `frontend/`、`legalqa/api.py` |
+| Web 前端 | FastAPI SSE + Vue 3（登录/会话落库/限流/引用侧栏/法条库/评测看板/管理端） | `frontend/`、`legalqa/api.py` |
 
 > 100 条合成集有 15% 的单条翻转、±1~2pt 总数噪声；89 与 84 的差异不要当精确结论。合成金标已做过一轮审计（E15），仍不是人工标注。
 
@@ -52,7 +52,7 @@ START → InputGuard → ContextCompress → Agent ⇄ ToolNode → OutputGuard 
 cp .env.example .env
 
 # 3) 测试
-./.venv/Scripts/python.exe -m pytest tests/ -q          # 470 passed
+./.venv/Scripts/python.exe -m pytest tests/ -q          # 481 passed
 
 # 4) 接入自检（LLM 连通性 / 工具调用 / embedding / 索引）
 ./.venv/Scripts/python.exe -m legalqa.cli --check
@@ -99,13 +99,20 @@ npm run build
   - 支持按法律浏览、全文关键词（中文 bigram）、`第八十七条`/`87` 条号定位
 - 评测看板：`GET /api/eval/runs`、`GET /api/eval/runs/{id}`、`GET /api/eval/runs/{id}/cases/{case_id}`
   - 只读 `data/eval/*.json`，不重跑模型；失败用例可展开看答案与检索材料
+- 反馈：`POST /api/feedback`（登录用户对某条回答提交反馈，含回答快照）
+- 管理端（仅 `role=admin`，`/api/admin/*` 前缀）：
+  - 概览：`GET /api/admin/overview`（未读反馈、待处理导入、索引落后、版本年限提醒）
+  - 反馈：`GET /api/admin/feedback`、`PATCH /api/admin/feedback/{id}`
+  - 导入：`POST/DELETE /api/admin/imports`，`POST /api/admin/imports/{id}/analyze|apply`
+    - 上传 .docx/.pdf（≤20MB）→ 分析（查重：法名+版本+条文重合率；时效：版本日期/新旧比较）→ 确认入库
+    - 入库 = 语料备份 + 同名新版替换旧版 + **增量 embedding**（只向量化新条文），服务热重载索引
 - 健康检查：`GET /api/health`
 - 会话落库：SQLite `data/app.db`（用户、令牌、会话、消息、引用、meta）；服务端无状态，历史来自数据库
 - 限流（进程内滑动窗口，单进程 MVP）：
   - 聊天：默认 10 次/分钟、60 次/小时/用户
   - 登录：8 次/分钟/IP + 4 次/分钟/用户名；注册：5 次/分钟/IP
   - 环境变量见 `.env.example`；多 worker 部署时换 Redis
-- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；登录/注册、流式聊天、法条引用侧栏、服务端历史会话、法条库浏览、评测看板、移动端抽屉
+- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；登录/注册、流式聊天、法条引用侧栏、服务端历史会话、法条库浏览、评测看板、回答反馈、管理端（反馈/导入/语料/提醒）、移动端抽屉
 - API Key 只在服务端 `.env`，前端不接触密钥
 
 移动端实测（764px 视口；桌面 >1024px 为侧栏 + 聊天 + 法条面板固定三栏）：
@@ -122,12 +129,30 @@ npm run build
   <img src="docs/assets/web-eval.png" width="49%" alt="评测看板" />
 </p>
 
+<p>
+  <img src="docs/assets/web-admin.png" width="49%" alt="管理端概览" />
+</p>
+
+### 管理端怎么用
+
+```bash
+# 1) 先注册一个普通账号（如 demo），再在 .env 里指定它为管理员
+LEGALMIND_ADMIN_USERNAME=demo
+./.venv/Scripts/python.exe -m uvicorn legalqa.api:app --host 127.0.0.1 --port 8000
+```
+
+- 登录后顶栏出现「管理」标签，普通用户看不到。
+- 反馈：用户在回答下方点「反馈」，管理端「反馈」页可筛选并标记已处理/忽略。
+- 导入：「导入」页上传 .docx/.pdf → 点「分析」看查重/时效报告 → 「确认入库（替换旧版）」。入库会备份语料到 `data/backups/`、增量更新向量索引；若 embedding 暂不可用，语料仍入库，概览页会提示「索引落后」，重启服务后自动全量重建。
+- 概览页提醒：未读反馈数、待处理导入、索引落后、无版本日期/版本超 5 年的法律。
+
 ## 已知限制
 
 - 100 条剩余 11 条失败：2 条模型显式编造条号（79/66）、2 条检索到没引、4 条模型工具 query 漏事实、2 条近邻排序、1 条语义 gap。
 - 合成金标是弱标签；34 条手工集样本小。
 - Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流在进程内，多 worker 需换 Redis。
 - 法条库读 `data/index/qwen37/docs.json`（索引缺失时回落到 `data/corpus/all.jsonl`）；评测看板读 `data/eval/*.json`，两者都不调用模型。
+- 文献导入的「自动更新」目前只做站内提醒（反馈/索引/版本年限）+ 导入时新旧比对，未联网抓取官方数据库（有反爬与网页改版风险，列为二期）。
 - 生产部署建议 HTTPS + `LEGALMIND_COOKIE_SECURE=1`，并补 CSRF token/反向代理限流。
 - 阶段 0 是只读问答：不写文件、不调外部业务系统；阶段 1 的审批/写操作字段只预留未接线。
 
@@ -140,5 +165,5 @@ npm run build
 ## 下一步
 
 1. Web 生产化：Postgres/Redis、邮箱验证/找回密码、部署脚本与反向代理。
-2. 前端增强：引用点击定位、用户反馈采集、评测批次对比。
+2. 前端增强：引用点击定位、评测批次对比；自动更新二期（官方库联网检查提醒）。
 3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。

@@ -1,19 +1,23 @@
-"""FastAPI 入口：登录、限流、会话落库、SSE 聊天，以及前端静态托管。"""
+"""FastAPI 入口：登录、限流、会话落库、SSE 聊天、法条库/评测、管理端与前端静态托管。"""
 
 from __future__ import annotations
 
+import json
 import os
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from legalqa.importer import MAX_UPLOAD_BYTES, SUPPORTED_SUFFIXES, Importer
+from legalqa.env import load_dotenv
 from legalqa.library import EvalStore, LawCatalog
-from legalqa.service import get_service
+from legalqa.service import get_service, reload_service
 from legalqa.store import (
     COOKIE_NAME,
     TOKEN_TTL_SECONDS,
@@ -44,6 +48,25 @@ class SessionCreate(BaseModel):
 
 class ChatQuery(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
+
+
+class FeedbackIn(BaseModel):
+    session_id: str
+    message_id: str
+    category: str = Field(max_length=20)
+    comment: str = Field(default="", max_length=1000)
+
+
+class FeedbackStatusIn(BaseModel):
+    status: str = Field(max_length=20)
+
+
+class ImportApplyIn(BaseModel):
+    replace: bool = True
+
+
+FEEDBACK_CATEGORIES = {"引用错误", "答案错误", "条号不存在", "其他"}
+FEEDBACK_STATUSES = {"open", "done", "ignored"}
 
 
 def _client_ip(request: Request) -> str:
@@ -80,16 +103,29 @@ def current_user(request: Request) -> dict[str, Any]:
     return user
 
 
+def current_admin(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可访问")
+    return user
+
+
 def create_app(
     db_path: str | Path | None = None,
     docs_path: str | Path | None = None,
     eval_dir: str | Path | None = None,
+    importer: Importer | None = None,
 ) -> FastAPI:
+    load_dotenv()
     app = FastAPI(title="LegalMind API", version="0.2.0")
     app.state.db = Database(db_path or ROOT / "data/app.db")
     app.state.limiter = RateLimiter()
     app.state.catalog = LawCatalog(docs_path)
     app.state.evals = EvalStore(eval_dir)
+    app.state.importer = importer or Importer()
+
+    admin_username = os.environ.get("LEGALMIND_ADMIN_USERNAME", "").strip()
+    if admin_username:
+        app.state.db.set_admin(admin_username)
 
     app.add_middleware(
         CORSMiddleware,
@@ -297,6 +333,205 @@ def create_app(
                 "X-Accel-Buffering": "no",
             },
         )
+
+    # -- 用户反馈 -------------------------------------------------------
+    @app.post("/api/feedback")
+    def submit_feedback(
+        payload: FeedbackIn,
+        request: Request,
+        user: dict[str, Any] = Depends(current_user),
+    ) -> dict[str, Any]:
+        if payload.category not in FEEDBACK_CATEGORIES:
+            raise HTTPException(status_code=400, detail="反馈分类不合法")
+        _rate_limit(request, f"feedback:{user['id']}:hour", 20, 3600)
+        db = request.app.state.db
+        if db.get_session(user["id"], payload.session_id) is None:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        context = db.get_message_context(payload.session_id, payload.message_id)
+        if context is None:
+            raise HTTPException(status_code=404, detail="消息不存在")
+        return db.add_feedback(
+            user["id"],
+            payload.session_id,
+            payload.message_id,
+            payload.category,
+            payload.comment.strip(),
+            context["question"],
+            context["answer"],
+            context["citations"],
+        )
+
+    # -- 管理端 ----------------------------------------------------------
+    @app.get("/api/admin/overview")
+    def admin_overview(
+        request: Request,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        db = request.app.state.db
+        catalog: LawCatalog = request.app.state.catalog
+        importer: Importer = request.app.state.importer
+
+        warnings: list[dict[str, Any]] = []
+        corpus: dict[str, Any] = {"total_laws": 0, "total_articles": 0}
+        try:
+            stats = catalog.stats()
+            corpus["total_laws"] = stats["total_laws"]
+            corpus["total_articles"] = stats["total_articles"]
+            today_year = date.today().year
+            for law in catalog.laws():
+                version = law.get("latest_version", "")
+                if not version:
+                    warnings.append(
+                        {"name": law["name"], "version": "", "years": None, "reason": "无版本日期"}
+                    )
+                    continue
+                years = max(today_year - int(version[:4]), 0)
+                if years >= 5:
+                    warnings.append(
+                        {
+                            "name": law["name"],
+                            "version": version,
+                            "years": years,
+                            "reason": f"版本距今 {years} 年",
+                        }
+                    )
+        except FileNotFoundError as exc:
+            corpus["error"] = str(exc)
+
+        warnings.sort(key=lambda item: (item["years"] is None, -(item["years"] or 0)))
+        return {
+            "feedback_open": db.count_feedback_open(),
+            "imports_pending": db.count_imports_pending(),
+            "index": importer.index_lag(),
+            "corpus": corpus,
+            "version_warnings": warnings,
+        }
+
+    @app.get("/api/admin/feedback")
+    def list_feedback_admin(
+        request: Request,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        return request.app.state.db.list_feedback(
+            status or "", min(max(limit, 1), 100), max(offset, 0)
+        )
+
+    @app.patch("/api/admin/feedback/{feedback_id}")
+    def patch_feedback(
+        feedback_id: str,
+        payload: FeedbackStatusIn,
+        request: Request,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, bool]:
+        if payload.status not in FEEDBACK_STATUSES:
+            raise HTTPException(status_code=400, detail="状态不合法")
+        if not request.app.state.db.update_feedback_status(feedback_id, payload.status):
+            raise HTTPException(status_code=404, detail="反馈不存在")
+        return {"ok": True}
+
+    @app.get("/api/admin/imports")
+    def list_imports_admin(
+        request: Request,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        return {"items": request.app.state.db.list_imports()}
+
+    @app.post("/api/admin/imports")
+    async def upload_import(
+        request: Request,
+        file: UploadFile = File(...),
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        _rate_limit(request, f"import:{user['id']}:minute", 5, 60)
+        filename = Path(file.filename or "").name
+        suffix = Path(filename).suffix.lower()
+        if suffix not in SUPPORTED_SUFFIXES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"只支持 {' / '.join(sorted(SUPPORTED_SUFFIXES))} 格式",
+            )
+        content = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="文件超过 20MB 上限")
+        if not content:
+            raise HTTPException(status_code=400, detail="文件为空")
+        importer: Importer = request.app.state.importer
+        import_id, stored = importer.save_upload(filename, content)
+        return request.app.state.db.create_import(filename, str(stored), len(content))
+
+    @app.delete("/api/admin/imports/{import_id}")
+    def delete_import(
+        import_id: str,
+        request: Request,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, bool]:
+        db = request.app.state.db
+        record = db.get_import(import_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="导入记录不存在")
+        if record["status"] == "applied":
+            raise HTTPException(status_code=400, detail="已入库的导入不能删除")
+        request.app.state.importer.remove_upload(record["stored_path"])
+        db.delete_import(import_id)
+        return {"ok": True}
+
+    @app.post("/api/admin/imports/{import_id}/analyze")
+    def analyze_import(
+        import_id: str,
+        request: Request,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        _rate_limit(request, f"analyze:{user['id']}:minute", 10, 60)
+        db = request.app.state.db
+        record = db.get_import(import_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="导入记录不存在")
+        if record["status"] == "applied":
+            raise HTTPException(status_code=400, detail="该文件已入库")
+        report = request.app.state.importer.analyze(record["stored_path"])
+        db.update_import(
+            import_id,
+            status="analyzed" if report.get("ok") else "failed",
+            law_name=report.get("law_name", ""),
+            version_date=report.get("version_date", ""),
+            article_count=report.get("article_count", 0),
+            report_json=json.dumps(report, ensure_ascii=False),
+            error=report.get("error", ""),
+        )
+        return report
+
+    @app.post("/api/admin/imports/{import_id}/apply")
+    def apply_import(
+        import_id: str,
+        payload: ImportApplyIn,
+        request: Request,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        _rate_limit(request, f"apply:{user['id']}:hour", 5, 3600)
+        db = request.app.state.db
+        record = db.get_import(import_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="导入记录不存在")
+        if record["status"] != "analyzed":
+            raise HTTPException(status_code=400, detail="请先完成分析再入库")
+        if not record.get("report", {}).get("ok"):
+            raise HTTPException(status_code=400, detail="分析未通过，无法入库")
+        result = request.app.state.importer.apply(record, replace=payload.replace)
+        if result.get("ok"):
+            report = dict(record.get("report") or {})
+            report["apply_result"] = result
+            db.update_import(
+                import_id,
+                status="applied",
+                applied_at=datetime.now().isoformat(timespec="seconds"),
+                report_json=json.dumps(report, ensure_ascii=False),
+            )
+            request.app.state.catalog.reload()
+            reload_service()
+        return result
 
     if DIST.exists():
         app.mount("/", StaticFiles(directory=str(DIST), html=True), name="frontend")

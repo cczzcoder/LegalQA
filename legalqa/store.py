@@ -110,6 +110,7 @@ class Database:
                     username TEXT UNIQUE NOT NULL,
                     salt TEXT NOT NULL,
                     password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'user',
                     created_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -137,13 +138,54 @@ class Database:
                     created_at TEXT NOT NULL,
                     FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
                 );
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    comment TEXT NOT NULL DEFAULT '',
+                    question TEXT NOT NULL DEFAULT '',
+                    answer TEXT NOT NULL DEFAULT '',
+                    citations_json TEXT NOT NULL DEFAULT '[]',
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS imports (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    stored_path TEXT NOT NULL,
+                    size_bytes INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'uploaded',
+                    law_name TEXT NOT NULL DEFAULT '',
+                    version_date TEXT NOT NULL DEFAULT '',
+                    article_count INTEGER NOT NULL DEFAULT 0,
+                    report_json TEXT NOT NULL DEFAULT '{}',
+                    error TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    applied_at TEXT NOT NULL DEFAULT ''
+                );
                 CREATE INDEX IF NOT EXISTS idx_sessions_user
                     ON chat_sessions(user_id, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_messages_session
                     ON messages(session_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_tokens_user ON auth_tokens(user_id);
+                CREATE INDEX IF NOT EXISTS idx_feedback_status
+                    ON feedback(status, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_imports_status
+                    ON imports(status, created_at DESC);
                 """
             )
+            # 旧库迁移：role 列是后加的，CREATE TABLE IF NOT EXISTS 不会补列。
+            columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(users)")
+            }
+            if "role" not in columns:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"
+                )
 
     # -- 用户 / 登录 ---------------------------------------------------
     def create_user(self, username: str, password: str) -> dict[str, Any]:
@@ -163,19 +205,29 @@ class Database:
                 )
         except sqlite3.IntegrityError as exc:
             raise ValueError("用户名已存在") from exc
-        return {"id": user_id, "username": username}
+        return {"id": user_id, "username": username, "role": "user"}
 
     def verify_user(self, username: str, password: str) -> dict[str, Any] | None:
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT id, username, salt, password_hash FROM users WHERE username = ?",
+                "SELECT id, username, role, salt, password_hash FROM users "
+                "WHERE username = ?",
                 (username.strip(),),
             ).fetchone()
         if row is None or not verify_password(
             password, row["salt"], row["password_hash"]
         ):
             return None
-        return {"id": row["id"], "username": row["username"]}
+        return {"id": row["id"], "username": row["username"], "role": row["role"]}
+
+    def set_admin(self, username: str) -> bool:
+        """把指定用户提升为管理员。管理员不能开放注册产生，只能显式指定。"""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE users SET role = 'admin' WHERE username = ?",
+                (username.strip(),),
+            )
+            return cur.rowcount > 0
 
     def create_token(self, user_id: str) -> str:
         token = secrets.token_urlsafe(32)
@@ -193,7 +245,7 @@ class Database:
         token_hash = hash_token(token)
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT u.id, u.username, t.expires_at FROM auth_tokens t "
+                "SELECT u.id, u.username, u.role, t.expires_at FROM auth_tokens t "
                 "JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
                 (token_hash,),
             ).fetchone()
@@ -202,7 +254,11 @@ class Database:
             if row["expires_at"] <= time.time():
                 conn.execute("DELETE FROM auth_tokens WHERE token_hash = ?", (token_hash,))
                 return None
-            return {"id": row["id"], "username": row["username"]}
+            return {
+                "id": row["id"],
+                "username": row["username"],
+                "role": row["role"],
+            }
 
     def delete_token(self, token: str | None) -> None:
         if not token:
@@ -342,3 +398,189 @@ class Database:
                 (session_id,),
             ).fetchone()
         return int(row["n"]) if row else 0
+
+    # -- 反馈 -----------------------------------------------------------
+    def get_message_context(
+        self, session_id: str, message_id: str
+    ) -> dict[str, Any] | None:
+        """反馈用的消息快照：回答本身 + 它之前最近一条用户提问。"""
+        with self._conn() as conn:
+            message = conn.execute(
+                "SELECT id, role, content, citations_json, created_at FROM messages "
+                "WHERE id = ? AND session_id = ? AND role = 'assistant'",
+                (message_id, session_id),
+            ).fetchone()
+            if message is None:
+                return None
+            question = conn.execute(
+                "SELECT content FROM messages WHERE session_id = ? AND role = 'user' "
+                "AND created_at <= ? ORDER BY created_at DESC LIMIT 1",
+                (session_id, message["created_at"]),
+            ).fetchone()
+        try:
+            citations = json.loads(message["citations_json"] or "[]")
+        except json.JSONDecodeError:
+            citations = []
+        return {
+            "message_id": message_id,
+            "question": question["content"] if question else "",
+            "answer": message["content"],
+            "citations": citations,
+        }
+
+    def add_feedback(
+        self,
+        user_id: str,
+        session_id: str,
+        message_id: str,
+        category: str,
+        comment: str,
+        question: str,
+        answer: str,
+        citations: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        feedback_id = uuid.uuid4().hex
+        now = _now_iso()
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO feedback(id, user_id, session_id, message_id, category, "
+                "comment, question, answer, citations_json, status, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)",
+                (
+                    feedback_id,
+                    user_id,
+                    session_id,
+                    message_id,
+                    category,
+                    comment,
+                    question,
+                    answer,
+                    json.dumps(citations or [], ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+        return {"id": feedback_id, "status": "open", "created_at": now}
+
+    def list_feedback(
+        self, status: str = "", limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        where = "WHERE status = ?" if status else ""
+        params: list[Any] = [status] if status else []
+        with self._conn() as conn:
+            total = conn.execute(
+                f"SELECT COUNT(*) AS n FROM feedback {where}", params
+            ).fetchone()["n"]
+            rows = conn.execute(
+                f"SELECT * FROM feedback {where} "
+                "ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                [*params, limit, offset],
+            ).fetchall()
+        items = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["citations"] = json.loads(item.pop("citations_json") or "[]")
+            except json.JSONDecodeError:
+                item["citations"] = []
+            items.append(item)
+        return {"total": int(total), "items": items}
+
+    def update_feedback_status(self, feedback_id: str, status: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?",
+                (status, _now_iso(), feedback_id),
+            )
+            return cur.rowcount > 0
+
+    def count_feedback_open(self) -> int:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM feedback WHERE status = 'open'"
+            ).fetchone()
+        return int(row["n"]) if row else 0
+
+    # -- 文献导入 --------------------------------------------------------
+    def create_import(
+        self, filename: str, stored_path: str, size_bytes: int
+    ) -> dict[str, Any]:
+        import_id = uuid.uuid4().hex
+        now = _now_iso()
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO imports(id, filename, stored_path, size_bytes, status, "
+                "created_at) VALUES (?, ?, ?, ?, 'uploaded', ?)",
+                (import_id, filename, stored_path, size_bytes, now),
+            )
+        return {
+            "id": import_id,
+            "filename": filename,
+            "size_bytes": size_bytes,
+            "status": "uploaded",
+            "created_at": now,
+        }
+
+    def get_import(self, import_id: str) -> dict[str, Any] | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM imports WHERE id = ?", (import_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        try:
+            item["report"] = json.loads(item.pop("report_json") or "{}")
+        except json.JSONDecodeError:
+            item["report"] = {}
+        return item
+
+    def list_imports(self) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM imports ORDER BY created_at DESC LIMIT 200"
+            ).fetchall()
+        items = []
+        for row in rows:
+            item = dict(row)
+            try:
+                item["report"] = json.loads(item.pop("report_json") or "{}")
+            except json.JSONDecodeError:
+                item["report"] = {}
+            items.append(item)
+        return items
+
+    def update_import(self, import_id: str, **fields: Any) -> dict[str, Any] | None:
+        allowed = {
+            "status",
+            "law_name",
+            "version_date",
+            "article_count",
+            "report_json",
+            "error",
+            "applied_at",
+        }
+        updates = {key: value for key, value in fields.items() if key in allowed}
+        if not updates:
+            return self.get_import(import_id)
+        assignments = ", ".join(f"{key} = ?" for key in updates)
+        with self._conn() as conn:
+            cur = conn.execute(
+                f"UPDATE imports SET {assignments} WHERE id = ?",
+                [*updates.values(), import_id],
+            )
+            if cur.rowcount == 0:
+                return None
+        return self.get_import(import_id)
+
+    def count_imports_pending(self) -> int:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS n FROM imports WHERE status IN ('uploaded', 'analyzed')"
+            ).fetchone()
+        return int(row["n"]) if row else 0
+
+    def delete_import(self, import_id: str) -> bool:
+        with self._conn() as conn:
+            cur = conn.execute("DELETE FROM imports WHERE id = ?", (import_id,))
+            return cur.rowcount > 0

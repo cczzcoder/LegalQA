@@ -95,7 +95,8 @@
       </template>
 
       <LawLibraryView v-else-if="view === 'laws'" />
-      <EvalDashboardView v-else />
+      <EvalDashboardView v-else-if="view === 'eval'" />
+      <AdminView v-else />
     </main>
 
     <template v-if="view === 'chat'">
@@ -129,6 +130,7 @@ import Composer from './components/Composer.vue'
 import LoginView from './components/LoginView.vue'
 import LawLibraryView from './components/LawLibraryView.vue'
 import EvalDashboardView from './components/EvalDashboardView.vue'
+import AdminView from './components/AdminView.vue'
 import examples from './legalExamples'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
@@ -141,16 +143,23 @@ const showCitations = ref(!isMobile.value)
 const sidebarOpen = ref(false)
 const view = ref('chat')
 
-const tabs = [
+const baseTabs = [
   { id: 'chat', label: '问答' },
   { id: 'laws', label: '法条库' },
   { id: 'eval', label: '评测' },
 ]
 
+const tabs = computed(() =>
+  auth.user?.role === 'admin'
+    ? [...baseTabs, { id: 'admin', label: '管理' }]
+    : baseTabs,
+)
+
 const titles = {
   chat: '把问题说清楚，我们把法条找出来',
   laws: '法条库：先看原文，再谈适用',
   eval: '评测看板：每一次改动都有据可查',
+  admin: '管理端：反馈与法条库维护',
 }
 
 const viewTitle = computed(() => titles[view.value] || titles.chat)
@@ -226,6 +235,7 @@ watch(
 watch(
   () => auth.user,
   async (user) => {
+    if (user && user.role !== 'admin' && view.value === 'admin') view.value = 'chat'
     if (user) await store.init()
     else store.reset()
   },

@@ -87,9 +87,13 @@
             </div>
             <div class="check-track">
               <div
-                class="check-fill"
-                :class="{ bad: item.failed > 0 }"
-                :style="{ width: barWidth(item) }"
+                class="check-fill ok"
+                :style="{ width: okWidth(item) }"
+              ></div>
+              <div
+                v-if="item.failed"
+                class="check-fill bad"
+                :style="{ width: badWidth(item) }"
               ></div>
             </div>
           </div>
@@ -240,9 +244,17 @@ function answerHtml(caseId) {
   return data ? renderMarkdown(data.answer) : ''
 }
 
-function barWidth(item) {
+function okWidth(item) {
   if (!item.failed) return '100%'
-  return `${Math.max(item.fail_rate * 100, 3)}%`
+  return `${100 - badWidthPct(item)}%`
+}
+
+function badWidth(item) {
+  return `${badWidthPct(item)}%`
+}
+
+function badWidthPct(item) {
+  return Math.max(item.fail_rate * 100, 2)
 }
 
 function fmtPct(value) {
