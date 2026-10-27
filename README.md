@@ -1,5 +1,11 @@
 # LegalQA · 中文法律问答（LangGraph + RAG）
 
+[![CI](https://github.com/cczzcoder/LegalQA/actions/workflows/ci.yml/badge.svg)](https://github.com/cczzcoder/LegalQA/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Vue](https://img.shields.io/badge/Vue-3-42b883)
+![status](https://img.shields.io/badge/status-unregistered-red)
+![license](https://img.shields.io/badge/license-strictly--limited-orange)
+
 > ⚠️ **重要声明（务必先读 [NOTICE](NOTICE) 与 [LICENSE](LICENSE)）**
 > 本项目**未备案**（未取得 ICP 备案、算法备案、生成式人工智能服务备案），
 > **严禁**用于对外提供互联网信息服务、商业用途或生产环境；
