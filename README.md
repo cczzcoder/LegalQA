@@ -14,7 +14,7 @@
 |---|---|---|
 | 单元/属性测试 | **495 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
-| 100 条合成端到端 | **90/100**（历史最佳；单轮波动 84~90） | `data/eval/qwen37_partial_100.json` |
+| 100 条合成端到端 | **90/100**（默认 TOP_K=6；`LEGALQA_RAG_TOP_K=8` 实测 92，噪声带内） | `data/eval/qwen37_partial_100.json` |
 | 多轮对话（8 组 20 轮） | **20/20** | `scripts/run_multiturn_eval.py`、`data/eval/multiturn.jsonl` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
 | 引用可溯源 | 裸引修复 + 编造引用剥离后，本轮 100 集无幻觉条号 100% | 见上 |
