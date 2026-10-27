@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -502,21 +503,26 @@ def test_duplicate_call_ids_keep_all_tool_messages() -> None:
 # ---------------------------------------------------------------------------
 # CLI 冒烟
 # ---------------------------------------------------------------------------
-def test_cli_dry_run_end_to_end() -> None:
+def test_cli_dry_run_end_to_end(tmp_path: Path) -> None:
     """CLI 用 dry-run 走一遍完整循环（含检索与工具调用）。"""
+    import os
     import subprocess
     import sys
-    from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent
     if not (root / "data" / "corpus" / "constitution.jsonl").exists():
         pytest.skip("未构建语料")
 
+    # 测试必须自足：不依赖本机 .env，也不碰真实索引。
+    # 用临时索引 + hash embedder（离线、确定性）；否则 CI 上没有 Key 会
+    # 落到默认 huggingface provider 而失败，本地则可能和 qwen 索引维度不一致。
+    env = {**os.environ, "LEGALQA_EMBEDDING_PROVIDER": "hash"}
     result = subprocess.run(
         [sys.executable, "-m", "legalqa.cli",
-         "--query", "宪法第一条是什么", "--dry-run"],
+         "--query", "宪法第一条是什么", "--dry-run",
+         "--index", str(tmp_path / "index")],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-        cwd=str(root), timeout=180,
+        cwd=str(root), timeout=180, env=env,
     )
     assert result.returncode == 0, result.stderr[-800:]
     assert "通道=exact" in result.stdout

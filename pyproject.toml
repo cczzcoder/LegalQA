@@ -8,6 +8,7 @@ dependencies = [
     "langchain-core>=1.0",
     "langchain-openai>=0.3",
     "numpy>=1.26",
+    "pypdf>=5",
 ]
 
 [project.optional-dependencies]
