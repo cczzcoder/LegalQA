@@ -22,16 +22,22 @@
 
     <section class="login-panel">
       <div class="login-card">
-        <div class="login-tabs" role="tablist">
-          <button :class="{ active: mode === 'login' }" @click="switchMode('login')">登录</button>
-          <button :class="{ active: mode === 'register' }" @click="switchMode('register')">注册</button>
-        </div>
-        <h2>{{ mode === 'login' ? '欢迎回来' : '创建账号' }}</h2>
-        <p class="login-sub">
-          {{ mode === 'login' ? '登录后继续之前的咨询记录。' : '注册后会话会保存在本地数据库。' }}
-        </p>
+        <template v-if="mode !== 'forgot'">
+          <div class="login-tabs" role="tablist">
+            <button :class="{ active: mode === 'login' }" @click="switchMode('login')">登录</button>
+            <button :class="{ active: mode === 'register' }" @click="switchMode('register')">注册</button>
+          </div>
+          <h2>{{ mode === 'login' ? '欢迎回来' : '创建账号' }}</h2>
+          <p class="login-sub">
+            {{ mode === 'login' ? '登录后继续之前的咨询记录。' : '注册后会话会保存在本地数据库。' }}
+          </p>
+        </template>
+        <template v-else>
+          <h2>找回密码</h2>
+          <p class="login-sub">用注册邮箱获取验证码，重置密码后重新登录。</p>
+        </template>
 
-        <form @submit.prevent="submit">
+        <form v-if="mode !== 'forgot'" @submit.prevent="submit">
           <label for="username">用户名</label>
           <el-input
             id="username"
@@ -55,6 +61,15 @@
           />
 
           <template v-if="mode === 'register'">
+            <label for="email">邮箱（选填，用于验证与找回密码）</label>
+            <el-input
+              id="email"
+              v-model="email"
+              size="large"
+              maxlength="80"
+              placeholder="you@example.com"
+              autocomplete="email"
+            />
             <label for="confirm">确认密码</label>
             <el-input
               id="confirm"
@@ -79,6 +94,39 @@
           >
             {{ mode === 'login' ? '登录' : '注册并进入' }}
           </el-button>
+
+          <button v-if="mode === 'login'" type="button" class="forgot-link" @click="enterForgot">
+            忘记密码？
+          </button>
+        </form>
+
+        <form v-else @submit.prevent="submitForgot">
+          <template v-if="forgotStep === 'request'">
+            <label for="f-username">用户名</label>
+            <el-input id="f-username" v-model="username" size="large" maxlength="32" autocomplete="username" />
+            <label for="f-email">注册邮箱</label>
+            <el-input id="f-email" v-model="email" size="large" maxlength="80" placeholder="you@example.com" autocomplete="email" />
+          </template>
+          <template v-else>
+            <label for="f-code">验证码</label>
+            <el-input id="f-code" v-model="code" size="large" maxlength="6" placeholder="6 位数字验证码" />
+            <label for="f-password">新密码</label>
+            <el-input id="f-password" v-model="password" type="password" show-password size="large" maxlength="128" placeholder="至少 8 位" autocomplete="new-password" />
+          </template>
+
+          <p v-if="consoleCode" class="login-hint">开发模式验证码：{{ consoleCode }}</p>
+          <div v-if="error" class="login-error">{{ error }}</div>
+
+          <el-button
+            type="primary"
+            size="large"
+            native-type="submit"
+            :loading="forgotLoading"
+            class="login-submit"
+          >
+            {{ forgotStep === 'request' ? '发送验证码' : '重置密码' }}
+          </el-button>
+          <button type="button" class="forgot-link" @click="switchMode('login')">返回登录</button>
         </form>
 
         <p class="login-note">账号只用于保存会话；密码经 PBKDF2 加盐存储。</p>
@@ -90,16 +138,31 @@
 <script setup>
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { apiFetch } from '../http'
 
 const auth = useAuthStore()
 const mode = ref('login')
 const username = ref('')
 const password = ref('')
 const confirm = ref('')
+const email = ref('')
 const error = ref('')
+const forgotStep = ref('request')
+const forgotLoading = ref(false)
+const code = ref('')
+const consoleCode = ref('')
 
 function switchMode(next) {
   mode.value = next
+  error.value = ''
+  auth.error = ''
+  forgotStep.value = 'request'
+  consoleCode.value = ''
+  code.value = ''
+}
+
+function enterForgot() {
+  mode.value = 'forgot'
   error.value = ''
   auth.error = ''
 }
@@ -123,7 +186,47 @@ async function submit() {
   const ok =
     mode.value === 'login'
       ? await auth.login(username.value, password.value)
-      : await auth.register(username.value, password.value)
+      : await auth.register(username.value, password.value, email.value)
   if (!ok) error.value = auth.error || '请求失败'
+}
+
+async function submitForgot() {
+  error.value = ''
+  forgotLoading.value = true
+  try {
+    if (forgotStep.value === 'request') {
+      if (!username.value.trim() || !email.value.trim()) {
+        error.value = '请输入用户名和注册邮箱'
+        return
+      }
+      const data = await apiFetch('/api/auth/password/forgot', {
+        method: 'POST',
+        body: JSON.stringify({ username: username.value, email: email.value }),
+      })
+      consoleCode.value = data.console_code || ''
+      forgotStep.value = 'reset'
+      if (!consoleCode.value) error.value = '验证码已发送（控制台模式请查看服务端日志）'
+    } else {
+      if (!code.value || password.value.length < 8) {
+        error.value = '请输入 6 位验证码且新密码至少 8 位'
+        return
+      }
+      await apiFetch('/api/auth/password/reset', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: username.value,
+          code: code.value,
+          new_password: password.value,
+        }),
+      })
+      error.value = ''
+      password.value = ''
+      switchMode('login')
+    }
+  } catch (err) {
+    error.value = err.message || '请求失败'
+  } finally {
+    forgotLoading.value = false
+  }
 }
 </script>

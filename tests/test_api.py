@@ -273,3 +273,80 @@ def test_eval_compare(client: TestClient) -> None:
         params={"left": "qwen37_fact_100", "right": "missing"},
     )
     assert missing.status_code == 404
+
+
+def test_email_verify_flow(client: CsrfClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LEGALQA_EMAIL_CONSOLE", "1")
+    response = client.post(
+        "/api/auth/register",
+        json={"username": "mailuser", "password": "password123", "email": "a@b.com"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["email_verified"] == 0
+    code = data.get("console_code")
+    assert code and len(code) == 6
+
+    me = client.get("/api/auth/me").json()
+    assert me["email"] == "a@b.com"
+    assert me["email_verified"] == 0
+
+    bad = client.post("/api/auth/verify-email", json={"code": "000000"})
+    assert bad.status_code == 400
+
+    good = client.post("/api/auth/verify-email", json={"code": code})
+    assert good.status_code == 200
+    assert client.get("/api/auth/me").json()["email_verified"] == 1
+
+    assert client.post("/api/auth/verify-email/resend").status_code == 400
+
+
+def test_password_forgot_reset_flow(client: CsrfClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LEGALQA_EMAIL_CONSOLE", "1")
+    registered = client.post(
+        "/api/auth/register",
+        json={"username": "pwuser", "password": "password123", "email": "p@b.com"},
+    )
+    assert registered.status_code == 200
+    client.post("/api/auth/logout")
+
+    wrong = client.post(
+        "/api/auth/password/forgot",
+        json={"username": "pwuser", "email": "wrong@b.com"},
+    )
+    assert wrong.status_code == 200
+    assert "console_code" not in wrong.json()
+
+    forgot = client.post(
+        "/api/auth/password/forgot",
+        json={"username": "pwuser", "email": "p@b.com"},
+    )
+    code = forgot.json()["console_code"]
+    assert len(code) == 6
+
+    assert client.post(
+        "/api/auth/login",
+        json={"username": "pwuser", "password": "password123"},
+    ).status_code == 200
+    client.post("/api/auth/logout")
+
+    bad = client.post(
+        "/api/auth/password/reset",
+        json={"username": "pwuser", "code": "000000", "new_password": "newpassword9"},
+    )
+    assert bad.status_code == 400
+
+    reset = client.post(
+        "/api/auth/password/reset",
+        json={"username": "pwuser", "code": code, "new_password": "newpassword9"},
+    )
+    assert reset.status_code == 200
+
+    assert client.post(
+        "/api/auth/login",
+        json={"username": "pwuser", "password": "password123"},
+    ).status_code == 401
+    assert client.post(
+        "/api/auth/login",
+        json={"username": "pwuser", "password": "newpassword9"},
+    ).status_code == 200

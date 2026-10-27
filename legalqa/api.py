@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 from datetime import date, datetime
 from pathlib import Path
@@ -46,6 +47,25 @@ class AuthRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class RegisterRequest(AuthRequest):
+    email: str = Field(default="", max_length=80)
+
+
+class VerifyCodeIn(BaseModel):
+    code: str = Field(min_length=6, max_length=6)
+
+
+class ForgotPasswordIn(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+    email: str = Field(min_length=3, max_length=80)
+
+
+class ResetPasswordIn(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+    code: str = Field(min_length=6, max_length=6)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class SessionCreate(BaseModel):
     title: str = Field(default="新对话", max_length=60)
 
@@ -71,6 +91,36 @@ class ImportApplyIn(BaseModel):
 
 FEEDBACK_CATEGORIES = {"引用错误", "答案错误", "条号不存在", "其他"}
 FEEDBACK_STATUSES = {"open", "done", "ignored"}
+VERIFY_CODE_TTL_SECONDS = 600.0
+FORGOT_PER_MINUTE = int(os.environ.get("LEGALQA_FORGOT_PER_MINUTE", "5"))
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _deliver_code(email: str, code: str, purpose: str) -> dict[str, Any]:
+    """投递验证码。配了 SMTP 发信，否则打印到服务端控制台（开发模式）。"""
+    smtp_host = os.environ.get("LEGALQA_SMTP_HOST", "")
+    if smtp_host:
+        try:
+            import smtplib
+            from email.message import EmailMessage
+
+            message = EmailMessage()
+            message["Subject"] = f"LegalQA {purpose}验证码"
+            message["From"] = os.environ.get("LEGALQA_SMTP_FROM", "legalqa@localhost")
+            message["To"] = email
+            message.set_content(f"您的{purpose}验证码是 {code}，10 分钟内有效。")
+            with smtplib.SMTP(
+                smtp_host, int(os.environ.get("LEGALQA_SMTP_PORT", "25")), timeout=10
+            ) as client:
+                client.send_message(message)
+            return {"sent": True, "console": False}
+        except Exception:  # noqa: BLE001 —— 邮件失败回落到控制台
+            pass
+    print(
+        f"[LegalQA] {purpose}验证码 {code}（邮箱 {email}），10 分钟内有效",
+        flush=True,
+    )
+    return {"sent": False, "console": True}
 
 
 def _client_ip(request: Request) -> str:
@@ -309,11 +359,14 @@ def create_app(
     # -- 登录 / 注册 ---------------------------------------------------
     @app.post("/api/auth/register")
     def register(
-        payload: AuthRequest, request: Request, response: Response
+        payload: RegisterRequest, request: Request, response: Response
     ) -> dict[str, Any]:
         _rate_limit(request, f"register:{_client_ip(request)}", REGISTER_PER_MINUTE, 60)
+        email = payload.email.strip()
+        if email and not _EMAIL_RE.fullmatch(email):
+            raise HTTPException(status_code=400, detail="邮箱格式不正确")
         try:
-            user = request.app.state.db.create_user(payload.username, payload.password)
+            user = request.app.state.db.create_user(payload.username, payload.password, email)
         except ValueError as exc:
             status = 409 if "已存在" in str(exc) else 400
             raise HTTPException(status_code=status, detail=str(exc)) from exc
@@ -323,7 +376,16 @@ def create_app(
         request.app.state.db.add_audit(
             "register", user["id"], user["username"], "注册成功"
         )
-        return {**user, "csrf_token": csrf_token}
+        body = {**user, "csrf_token": csrf_token}
+        if email:
+            code = f"{secrets.randbelow(10 ** 6):06d}"
+            request.app.state.db.create_verification(
+                user["id"], "email_verify", code, VERIFY_CODE_TTL_SECONDS
+            )
+            delivered = _deliver_code(email, code, "邮箱")
+            if delivered["console"] and os.environ.get("LEGALQA_EMAIL_CONSOLE", "0") == "1":
+                body["console_code"] = code
+        return body
 
     @app.post("/api/auth/login")
     def login(
@@ -373,6 +435,80 @@ def create_app(
         if not request.cookies.get(CSRF_COOKIE_NAME):
             _set_csrf_cookie(response, secrets.token_urlsafe(32))
         return response
+
+    # -- 邮箱验证 / 密码找回 ----------------------------------------------
+    @app.post("/api/auth/verify-email/resend")
+    def resend_email_code(
+        request: Request,
+        user: dict[str, Any] = Depends(current_user),
+    ) -> dict[str, Any]:
+        _rate_limit(request, f"resend:{user['id']}:minute", 2, 600)
+        if not user.get("email"):
+            raise HTTPException(status_code=400, detail="请先设置邮箱")
+        if user.get("email_verified"):
+            raise HTTPException(status_code=400, detail="邮箱已验证")
+        code = f"{secrets.randbelow(10 ** 6):06d}"
+        request.app.state.db.create_verification(
+            user["id"], "email_verify", code, VERIFY_CODE_TTL_SECONDS
+        )
+        delivered = _deliver_code(user["email"], code, "邮箱")
+        body: dict[str, Any] = {"ok": True}
+        if delivered["console"] and os.environ.get("LEGALQA_EMAIL_CONSOLE", "0") == "1":
+            body["console_code"] = code
+        return body
+
+    @app.post("/api/auth/verify-email")
+    def verify_email(
+        payload: VerifyCodeIn,
+        request: Request,
+        user: dict[str, Any] = Depends(current_user),
+    ) -> dict[str, Any]:
+        _rate_limit(request, f"verify:{user['id']}:minute", 10, 60)
+        if user.get("email_verified"):
+            return {"ok": True, "email_verified": 1}
+        if not request.app.state.db.consume_verification(
+            user["id"], "email_verify", payload.code.strip()
+        ):
+            raise HTTPException(status_code=400, detail="验证码错误或已过期")
+        request.app.state.db.mark_email_verified(user["id"])
+        request.app.state.db.add_audit(
+            "email_verified", user["id"], user["username"], "邮箱验证通过"
+        )
+        return {"ok": True, "email_verified": 1}
+
+    @app.post("/api/auth/password/forgot")
+    def forgot_password(
+        payload: ForgotPasswordIn, request: Request
+    ) -> dict[str, Any]:
+        _rate_limit(request, f"forgot:{_client_ip(request)}", FORGOT_PER_MINUTE, 60)
+        db = request.app.state.db
+        body: dict[str, Any] = {"ok": True}
+        user_id = db.user_id_by_username_email(payload.username, payload.email)
+        if user_id is not None:
+            code = f"{secrets.randbelow(10 ** 6):06d}"
+            db.create_verification(
+                user_id, "password_reset", code, VERIFY_CODE_TTL_SECONDS
+            )
+            delivered = _deliver_code(payload.email, code, "密码重置")
+            if delivered["console"] and os.environ.get("LEGALQA_EMAIL_CONSOLE", "0") == "1":
+                body["console_code"] = code
+        # 不区分账号是否存在：避免用户名枚举。
+        return body
+
+    @app.post("/api/auth/password/reset")
+    def reset_password(payload: ResetPasswordIn, request: Request) -> dict[str, Any]:
+        _rate_limit(request, f"reset:{_client_ip(request)}", 10, 600)
+        db = request.app.state.db
+        user_id = db.user_id_by_username(payload.username)
+        if user_id is None or not db.consume_verification(
+            user_id, "password_reset", payload.code.strip()
+        ):
+            raise HTTPException(status_code=400, detail="用户名或验证码不正确")
+        db.set_password(user_id, payload.new_password)
+        db.add_audit(
+            "password_reset", user_id, payload.username, "通过验证码重置密码"
+        )
+        return {"ok": True}
 
     # -- 会话 -----------------------------------------------------------
     @app.get("/api/sessions")

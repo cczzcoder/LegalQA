@@ -57,6 +57,10 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _hash_verification(code: str) -> str:
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
 class RateLimiter:
     """进程内滑动窗口限流。key 例如 chat:{user_id}:minute / login:{ip}。"""
 
@@ -117,6 +121,8 @@ CREATE TABLE IF NOT EXISTS users (
     salt TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
+    email TEXT NOT NULL DEFAULT '',
+    email_verified INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -192,6 +198,18 @@ CREATE INDEX IF NOT EXISTS idx_imports_status
     ON imports(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_created
     ON audit_log(created_at DESC);
+CREATE TABLE IF NOT EXISTS verifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    consumed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_verifications_user
+    ON verifications(user_id, kind, created_at DESC);
 """
 
 # Postgres 方言差异：自增主键与 float8。
@@ -264,23 +282,39 @@ class Database:
         else:
             with self._conn() as conn:
                 conn.executescript(_SCHEMA)
-        # 旧库迁移：role 列是后加的，CREATE TABLE IF NOT EXISTS 不会补列。
+        # 旧库迁移：后加的列，CREATE TABLE IF NOT EXISTS 不会补列。
         with self._conn() as conn:
-            if self.pg:
-                rows = conn.execute(
-                    "SELECT column_name AS name FROM information_schema.columns "
-                    "WHERE table_name = 'users'"
-                ).fetchall()
-            else:
-                rows = conn.execute("PRAGMA table_info(users)").fetchall()
-            columns = {row["name"] for row in rows}
-            if "role" not in columns:
-                conn.execute(
-                    "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"
-                )
+            columns = self._column_names(conn, "users")
+            for column, ddl in (
+                ("role", "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"),
+                ("email", "ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''"),
+                (
+                    "email_verified",
+                    "ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0",
+                ),
+            ):
+                if column not in columns:
+                    conn.execute(ddl)
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email "
+                "ON users(email) WHERE email != ''"
+            )
+
+    def _column_names(self, conn, table: str) -> set[str]:
+        if self.pg:
+            rows = conn.execute(
+                "SELECT column_name AS name FROM information_schema.columns "
+                "WHERE table_name = ?",
+                (table,),
+            ).fetchall()
+        else:
+            rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        return {row["name"] for row in rows}
 
     # -- 用户 / 登录 ---------------------------------------------------
-    def create_user(self, username: str, password: str) -> dict[str, Any]:
+    def create_user(
+        self, username: str, password: str, email: str = ""
+    ) -> dict[str, Any]:
         username = username.strip()
         if not USERNAME_RE.fullmatch(username):
             raise ValueError("用户名需为 3-32 位中文、字母、数字或下划线")
@@ -291,26 +325,50 @@ class Database:
         try:
             with self._conn() as conn:
                 conn.execute(
-                    "INSERT INTO users(id, username, salt, password_hash, created_at) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (user_id, username, salt.hex(), _hash_password(password, salt), _now_iso()),
+                    "INSERT INTO users(id, username, salt, password_hash, role, "
+                    "email, email_verified, created_at) "
+                    "VALUES (?, ?, ?, ?, 'user', ?, 0, ?)",
+                    (
+                        user_id,
+                        username,
+                        salt.hex(),
+                        _hash_password(password, salt),
+                        email.strip(),
+                        _now_iso(),
+                    ),
                 )
         except sqlite3.IntegrityError as exc:
             raise ValueError("用户名已存在") from exc
-        return {"id": user_id, "username": username, "role": "user"}
+        except Exception as exc:  # noqa: BLE001 —— Postgres 的唯一约束冲突
+            if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
+                raise ValueError("用户名或邮箱已存在") from exc
+            raise
+        return {
+            "id": user_id,
+            "username": username,
+            "role": "user",
+            "email": email.strip(),
+            "email_verified": 0,
+        }
 
     def verify_user(self, username: str, password: str) -> dict[str, Any] | None:
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT id, username, role, salt, password_hash FROM users "
-                "WHERE username = ?",
+                "SELECT id, username, role, email, email_verified, salt, password_hash "
+                "FROM users WHERE username = ?",
                 (username.strip(),),
             ).fetchone()
         if row is None or not verify_password(
             password, row["salt"], row["password_hash"]
         ):
             return None
-        return {"id": row["id"], "username": row["username"], "role": row["role"]}
+        return {
+            "id": row["id"],
+            "username": row["username"],
+            "role": row["role"],
+            "email": row["email"],
+            "email_verified": int(row["email_verified"]),
+        }
 
     def set_admin(self, username: str) -> bool:
         """把指定用户提升为管理员；返回是否真正发生了提升（已是 admin 返回 False）。"""
@@ -342,7 +400,8 @@ class Database:
         token_hash = hash_token(token)
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT u.id, u.username, u.role, t.expires_at FROM auth_tokens t "
+                "SELECT u.id, u.username, u.role, u.email, u.email_verified, "
+                "t.expires_at FROM auth_tokens t "
                 "JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
                 (token_hash,),
             ).fetchone()
@@ -355,6 +414,8 @@ class Database:
                 "id": row["id"],
                 "username": row["username"],
                 "role": row["role"],
+                "email": row["email"],
+                "email_verified": int(row["email_verified"]),
             }
 
     def delete_token(self, token: str | None) -> None:
@@ -704,3 +765,83 @@ class Database:
                 (min(max(limit, 1), 500),),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    # -- 邮箱验证 / 密码重置 -------------------------------------------
+    def set_user_email(self, user_id: str, email: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE users SET email = ? WHERE id = ?", (email.strip(), user_id)
+            )
+
+    def create_verification(
+        self, user_id: str, kind: str, code: str, ttl: float
+    ) -> str:
+        verification_id = uuid.uuid4().hex
+        with self._conn() as conn:
+            # 同类型旧码作废：只保留最新一个有效码
+            conn.execute(
+                "UPDATE verifications SET consumed = 1 "
+                "WHERE user_id = ? AND kind = ? AND consumed = 0",
+                (user_id, kind),
+            )
+            conn.execute(
+                "INSERT INTO verifications(id, user_id, kind, code_hash, "
+                "expires_at, consumed, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)",
+                (
+                    verification_id,
+                    user_id,
+                    kind,
+                    _hash_verification(code),
+                    time.time() + ttl,
+                    _now_iso(),
+                ),
+            )
+        return verification_id
+
+    def consume_verification(self, user_id: str, kind: str, code: str) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT id, code_hash, expires_at FROM verifications "
+                "WHERE user_id = ? AND kind = ? AND consumed = 0 "
+                "ORDER BY created_at DESC LIMIT 1",
+                (user_id, kind),
+            ).fetchone()
+            if row is None or row["expires_at"] <= time.time():
+                return False
+            if not hmac.compare_digest(row["code_hash"], _hash_verification(code)):
+                return False
+            conn.execute(
+                "UPDATE verifications SET consumed = 1 WHERE id = ?", (row["id"],)
+            )
+        return True
+
+    def mark_email_verified(self, user_id: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,)
+            )
+
+    def set_password(self, user_id: str, new_password: str) -> None:
+        """重置密码：换盐重哈希，并吊销该用户全部登录令牌。"""
+        salt = secrets.token_bytes(16)
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE users SET salt = ?, password_hash = ? WHERE id = ?",
+                (salt.hex(), _hash_password(new_password, salt), user_id),
+            )
+            conn.execute("DELETE FROM auth_tokens WHERE user_id = ?", (user_id,))
+
+    def user_id_by_username(self, username: str) -> str | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT id FROM users WHERE username = ?", (username.strip(),)
+            ).fetchone()
+        return row["id"] if row else None
+
+    def user_id_by_username_email(self, username: str, email: str) -> str | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT id FROM users WHERE username = ? AND email = ?",
+                (username.strip(), email.strip()),
+            ).fetchone()
+        return row["id"] if row else None

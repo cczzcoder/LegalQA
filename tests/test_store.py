@@ -64,3 +64,20 @@ def test_rate_limiter_sliding_window() -> None:
     assert limiter.retry_after("chat:u1", 2, 60) == 0
     assert limiter.retry_after("chat:u1", 2, 60) > 0
     assert limiter.retry_after("chat:u2", 2, 60) == 0
+
+
+def test_set_password_revokes_tokens_and_verification(tmp_path: Path) -> None:
+    db = Database(tmp_path / "pw.db")
+    user = db.create_user("tester2", "password123", "t@b.com")
+    token = db.create_token(user["id"])
+    assert db.user_by_token(token) is not None
+
+    db.create_verification(user["id"], "password_reset", "123456", 600)
+    assert db.consume_verification(user["id"], "password_reset", "000000") is False
+    assert db.consume_verification(user["id"], "password_reset", "123456") is True
+    assert db.consume_verification(user["id"], "password_reset", "123456") is False
+
+    db.set_password(user["id"], "newpassword9")
+    assert db.user_by_token(token) is None
+    assert db.verify_user("tester2", "password123") is None
+    assert db.verify_user("tester2", "newpassword9") is not None

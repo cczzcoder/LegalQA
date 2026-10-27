@@ -12,7 +12,7 @@
 
 | 指标 | 结果 | 数据 |
 |---|---|---|
-| 单元/属性测试 | **492 passed** | `pytest tests/ -q` |
+| 单元/属性测试 | **495 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
 | 100 条合成端到端 | **90/100**（历史最佳；单轮波动 84~90） | `data/eval/qwen37_partial_100.json` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
@@ -56,7 +56,7 @@ START → InputGuard → ContextCompress → Agent ⇄ ToolNode → OutputGuard 
 cp .env.example .env
 
 # 3) 测试
-./.venv/Scripts/python.exe -m pytest tests/ -q          # 492 passed
+./.venv/Scripts/python.exe -m pytest tests/ -q          # 495 passed
 
 # 4) 接入自检（LLM 连通性 / 工具调用 / embedding / 索引）
 ./.venv/Scripts/python.exe -m legalqa.cli --check
@@ -97,6 +97,11 @@ npm run build
 
 - 认证：`POST /api/auth/register` / `login` / `logout`，`GET /api/auth/me`
   - 密码 PBKDF2-SHA256 加盐（200k 次）；登录令牌只存 SHA-256 哈希；httpOnly Cookie，7 天
+  - **邮箱验证**：注册可带邮箱（`verify-email/resend`、`verify-email`）；未配 SMTP 时
+    验证码打印到服务端控制台（`LEGALQA_EMAIL_CONSOLE=1` 时响应附带调试码），配
+    `LEGALQA_SMTP_HOST` 后走邮件
+  - **找回密码**：`password/forgot` + `password/reset`（验证码 10 分钟有效，重置后
+    吊销全部登录令牌；响应不区分账号是否存在，防用户名枚举）
   - **CSRF 双提交**：`lm_csrf` cookie + `X-CSRF-Token` 头，所有不安全方法（POST/PATCH/DELETE）校验
   - **安全响应头**：CSP / X-Frame-Options / X-Content-Type-Options / Referrer-Policy / Permissions-Policy
   - **审计日志**：登录/注册/退出与管理员操作落 `audit_log`，`GET /api/admin/audit` 查看
@@ -179,7 +184,7 @@ LEGALQA_TEST_REDIS_URL=redis://127.0.0.1:6380/0 \
 
 - 100 条剩余失败全部是「未引用期望法条」（检索未召回或模型未选择引用），属逐案检索/选择问题；编造条号已被输出护栏剥离，过度拒答已由「部分覆盖先作答」提示词修复。
 - 合成金标是弱标签；34 条手工集样本小。
-- Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流默认进程内，配 `LEGALQA_REDIS_URL` 即切 Redis 滑动窗口（多 worker 共享）。
+- Web 认证是 MVP：开放注册，没有多租户；邮箱验证/找回密码已支持（SMTP 可选，控制台模式先行）；限流默认进程内，配 `LEGALQA_REDIS_URL` 即切 Redis 滑动窗口（多 worker 共享）。
 - 法条库读 `data/index/qwen37/docs.json`（索引缺失时回落到 `data/corpus/all.jsonl`）；评测看板读 `data/eval/*.json`，两者都不调用模型。
 - 文献导入的「自动更新」目前只做站内提醒（反馈/索引/版本年限）+ 导入时新旧比对，未联网抓取官方数据库（有反爬与网页改版风险，列为二期）。
 - 生产部署建议 HTTPS + `LEGALQA_COOKIE_SECURE=1`，并补 CSRF token/反向代理限流。
@@ -193,6 +198,6 @@ LEGALQA_TEST_REDIS_URL=redis://127.0.0.1:6380/0 \
 
 ## 下一步
 
-1. Web 生产化收尾：邮箱验证/找回密码（SMTP，控制台模式先行）、部署脚本与反向代理示例。
+1. 部署脚本与反向代理示例；多租户（如需）。
 2. 前端增强：自动更新二期（官方库联网检查提醒）。
 3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。

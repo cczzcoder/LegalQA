@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', {
     ready: false,
     loading: false,
     error: '',
+    consoleCode: '',
   }),
 
   actions: {
@@ -28,8 +29,8 @@ export const useAuthStore = defineStore('auth', {
       return this.submit('/api/auth/login', { username, password })
     },
 
-    async register(username, password) {
-      return this.submit('/api/auth/register', { username, password })
+    async register(username, password, email = '') {
+      return this.submit('/api/auth/register', { username, password, email })
     },
 
     async submit(url, payload) {
@@ -41,6 +42,7 @@ export const useAuthStore = defineStore('auth', {
           body: JSON.stringify(payload),
         })
         this.user = data
+        this.consoleCode = data.console_code || ''
         return true
       } catch (error) {
         this.error = error.message || '请求失败'

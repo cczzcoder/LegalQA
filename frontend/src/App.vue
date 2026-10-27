@@ -119,6 +119,31 @@
         @close="showCitations = false"
       />
     </template>
+
+    <el-dialog
+      v-model="verifyOpen"
+      title="验证邮箱"
+      width="min(92vw, 400px)"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+    >
+      <p class="feedback-hint">
+        验证码已发送至 {{ auth.user?.email }}（未配置邮件服务时请查看服务端控制台输出）。
+      </p>
+      <el-input
+        v-model="verifyCode"
+        maxlength="6"
+        placeholder="6 位数字验证码"
+        @keyup.enter="submitVerify"
+      />
+      <p v-if="verifyConsoleCode" class="login-hint">开发模式验证码：{{ verifyConsoleCode }}</p>
+      <p v-if="verifyError" class="feedback-error">{{ verifyError }}</p>
+      <div class="feedback-actions">
+        <el-button size="small" :loading="verifySending" @click="resendVerify">重新发送</el-button>
+        <el-button size="small" type="primary" :loading="verifySending" @click="submitVerify">提交</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -133,6 +158,7 @@ import LawLibraryView from './components/LawLibraryView.vue'
 import EvalDashboardView from './components/EvalDashboardView.vue'
 import AdminView from './components/AdminView.vue'
 import examples from './legalExamples'
+import { apiFetch } from './http'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 
@@ -144,6 +170,44 @@ const isMobile = ref(window.innerWidth < 1024)
 const showCitations = ref(!isMobile.value)
 const sidebarOpen = ref(false)
 const view = ref('chat')
+
+const verifyOpen = ref(false)
+const verifyCode = ref('')
+const verifyError = ref('')
+const verifySending = ref(false)
+const verifyConsoleCode = ref('')
+
+async function submitVerify() {
+  verifySending.value = true
+  verifyError.value = ''
+  try {
+    await apiFetch('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ code: verifyCode.value.trim() }),
+    })
+    auth.user = { ...auth.user, email_verified: 1 }
+    verifyOpen.value = false
+    verifyCode.value = ''
+  } catch (error) {
+    verifyError.value = error.message || '验证失败'
+  } finally {
+    verifySending.value = false
+  }
+}
+
+async function resendVerify() {
+  verifySending.value = true
+  verifyError.value = ''
+  verifyConsoleCode.value = ''
+  try {
+    const data = await apiFetch('/api/auth/verify-email/resend', { method: 'POST' })
+    verifyConsoleCode.value = data.console_code || ''
+  } catch (error) {
+    verifyError.value = error.message || '重新发送失败'
+  } finally {
+    verifySending.value = false
+  }
+}
 
 const baseTabs = [
   { id: 'chat', label: '问答' },
@@ -257,6 +321,11 @@ watch(
     if (user && user.role !== 'admin' && view.value === 'admin') view.value = 'chat'
     if (user) await store.init()
     else store.reset()
+    // 有邮箱但未验证时弹出验证框（可跳过，不影响使用）
+    if (user?.email && !user.email_verified) {
+      verifyConsoleCode.value = auth.consoleCode
+      verifyOpen.value = true
+    }
   },
 )
 

@@ -1261,6 +1261,32 @@ button {
   text-align: center;
 }
 
+.forgot-link {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 4px;
+  border: 0;
+  color: #7b8da0;
+  font-size: 12px;
+  text-align: center;
+  background: transparent;
+  cursor: pointer;
+}
+
+.forgot-link:hover {
+  color: var(--navy-2);
+}
+
+.login-hint {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: #7d5a1e;
+  font-size: 11px;
+  background: #faf3e3;
+}
+
 @media (max-width: 900px) {
   .login-page {
     grid-template-columns: 1fr;
