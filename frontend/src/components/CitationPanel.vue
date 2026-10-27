@@ -16,12 +16,12 @@
       <p>提问后，这里会显示检索到的法条原文、版本与效力。</p>
     </div>
 
-    <div v-else class="citation-list">
+    <div v-else class="citation-list" ref="listEl">
       <article
         v-for="(citation, index) in citations"
         :key="`${citation.law_name}-${citation.article_no}-${index}`"
         class="citation-card"
-        :class="{ active: index === activeIndex }"
+        :class="{ active: index === activeIndex, flash: index === flashIndex }"
         @click="$emit('select', index)"
       >
         <div class="cite-top">
@@ -49,12 +49,31 @@
 </template>
 
 <script setup>
-defineProps({
+import { nextTick, ref, watch } from 'vue'
+
+const props = defineProps({
   citations: { type: Array, default: () => [] },
   activeIndex: { type: Number, default: -1 },
   open: { type: Boolean, default: true },
 })
 defineEmits(['select', 'close'])
+
+const listEl = ref(null)
+const flashIndex = ref(-1)
+
+watch(
+  () => props.activeIndex,
+  async (index) => {
+    if (index < 0) return
+    await nextTick()
+    const card = listEl.value?.querySelectorAll('.citation-card')[index]
+    card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    flashIndex.value = index
+    setTimeout(() => {
+      if (flashIndex.value === index) flashIndex.value = -1
+    }, 1600)
+  },
+)
 
 function shortLaw(name) {
   return String(name || '').replace('中华人民共和国', '')

@@ -5,41 +5,90 @@
         <h2>评测看板</h2>
         <p>读取 data/eval 下已保存的结果，不重新调用模型。</p>
       </div>
-      <el-select
-        v-model="runId"
-        class="run-select"
-        filterable
-        placeholder="选择评测批次"
-        :disabled="loadingRuns || !runs.length"
-        @change="loadRun"
-      >
-        <el-option-group v-if="keyRuns.length" label="关键节点">
-          <el-option
-            v-for="run in keyRuns"
-            :key="run.id"
-            :label="run.label"
-            :value="run.id"
+      <div class="eval-controls">
+        <div class="eval-mode">
+          <button :class="{ active: mode === 'single' }" @click="mode = 'single'">单批</button>
+          <button :class="{ active: mode === 'compare' }" @click="enterCompare">对比</button>
+        </div>
+        <el-select
+          v-if="mode === 'single'"
+          v-model="runId"
+          class="run-select"
+          filterable
+          placeholder="选择评测批次"
+          :disabled="loadingRuns || !runs.length"
+          @change="loadRun"
+        >
+          <el-option-group v-if="keyRuns.length" label="关键节点">
+            <el-option
+              v-for="run in keyRuns"
+              :key="run.id"
+              :label="run.label"
+              :value="run.id"
+            >
+              <div class="run-option">
+                <span>{{ run.label }}</span>
+                <em>{{ run.case_count }} 条 · {{ fmtPct(run.pass_rate) }}</em>
+              </div>
+            </el-option>
+          </el-option-group>
+          <el-option-group v-if="otherRuns.length" label="历史实验">
+            <el-option
+              v-for="run in otherRuns"
+              :key="run.id"
+              :label="run.id"
+              :value="run.id"
+            >
+              <div class="run-option">
+                <span>{{ run.id }}</span>
+                <em>{{ run.case_count }} 条 · {{ fmtPct(run.pass_rate) }}</em>
+              </div>
+            </el-option>
+          </el-option-group>
+        </el-select>
+        <template v-else>
+          <el-select
+            v-model="runId"
+            class="run-select"
+            filterable
+            placeholder="基准批次"
+            :disabled="loadingRuns || !runs.length"
+            @change="loadCompare"
           >
-            <div class="run-option">
-              <span>{{ run.label }}</span>
-              <em>{{ run.case_count }} 条 · {{ fmtPct(run.pass_rate) }}</em>
-            </div>
-          </el-option>
-        </el-option-group>
-        <el-option-group v-if="otherRuns.length" label="历史实验">
-          <el-option
-            v-for="run in otherRuns"
-            :key="run.id"
-            :label="run.id"
-            :value="run.id"
+            <el-option
+              v-for="run in runs"
+              :key="run.id"
+              :label="run.label"
+              :value="run.id"
+            >
+              <div class="run-option">
+                <span>{{ run.label }}</span>
+                <em>{{ run.case_count }} 条 · {{ fmtPct(run.pass_rate) }}</em>
+              </div>
+            </el-option>
+          </el-select>
+          <el-select
+            v-model="compareRightId"
+            class="run-select"
+            filterable
+            placeholder="对比批次"
+            :disabled="loadingRuns || !runs.length"
+            @change="loadCompare"
           >
-            <div class="run-option">
-              <span>{{ run.id }}</span>
-              <em>{{ run.case_count }} 条 · {{ fmtPct(run.pass_rate) }}</em>
-            </div>
-          </el-option>
-        </el-option-group>
-      </el-select>
+            <el-option
+              v-for="run in runs"
+              :key="run.id"
+              :label="run.label"
+              :value="run.id"
+            >
+              <div class="run-option">
+                <span>{{ run.label }}</span>
+                <em>{{ run.case_count }} 条 · {{ fmtPct(run.pass_rate) }}</em>
+              </div>
+            </el-option>
+          </el-select>
+        </template>
+      </div>
     </div>
 
     <div v-if="error" class="pane-state error">{{ error }}</div>
@@ -47,6 +96,57 @@
     <div v-else-if="!runs.length" class="pane-state">data/eval 下还没有可读的评测结果。</div>
 
     <template v-else-if="detail">
+      <div v-if="mode === 'compare'" class="eval-compare">
+        <div v-if="compareLoading" class="pane-state">正在对比…</div>
+        <div v-else-if="compareError" class="pane-state error">{{ compareError }}</div>
+        <template v-else-if="compareData">
+          <div class="cmp-table">
+            <div class="cmp-row cmp-head">
+              <span>指标</span>
+              <span>{{ compareData.left.label }}</span>
+              <span>{{ compareData.right.label }}</span>
+              <span>差量</span>
+            </div>
+            <div class="cmp-row">
+              <span>通过率</span>
+              <span>{{ fmtPct(compareData.left.pass_rate) }}（{{ compareData.left.passed }}/{{ compareData.left.case_count }}）</span>
+              <span>{{ fmtPct(compareData.right.pass_rate) }}（{{ compareData.right.passed }}/{{ compareData.right.case_count }}）</span>
+              <span :class="deltaClass(passRateDelta(), false)">
+                {{ fmtDelta(passRateDelta(), 'pt') }}
+              </span>
+            </div>
+            <div class="cmp-row">
+              <span>平均耗时</span>
+              <span>{{ fmtSeconds(compareData.left.avg_latency_ms) }}</span>
+              <span>{{ fmtSeconds(compareData.right.avg_latency_ms) }}</span>
+              <span :class="deltaClass(compareData.right.avg_latency_ms - compareData.left.avg_latency_ms, true)">
+                {{ fmtDelta(compareData.right.avg_latency_ms - compareData.left.avg_latency_ms, 'ms') }}
+              </span>
+            </div>
+            <div class="cmp-row">
+              <span>失败用例</span>
+              <span>{{ compareData.left.failures.length }}</span>
+              <span>{{ compareData.right.failures.length }}</span>
+              <span :class="deltaClass(compareData.right.failures.length - compareData.left.failures.length, true)">
+                {{ fmtDelta(compareData.right.failures.length - compareData.left.failures.length, ' 条') }}
+              </span>
+            </div>
+            <div v-for="row in compareData.checks" :key="row.name" class="cmp-row">
+              <span>{{ row.name }}</span>
+              <span>{{ row.left ? `${row.left.failed}/${row.left.total} 失败` : '—' }}</span>
+              <span>{{ row.right ? `${row.right.failed}/${row.right.total} 失败` : '—' }}</span>
+              <span v-if="row.left && row.right" :class="deltaClass(row.right.failed - row.left.failed, true)">
+                {{ fmtDelta(row.right.failed - row.left.failed, ' 条') }}
+              </span>
+              <span v-else>—</span>
+            </div>
+          </div>
+          <p class="cmp-common">
+            共同失败：{{ compareData.common_failures.length ? compareData.common_failures.join('、') : '无' }}
+          </p>
+        </template>
+      </div>
+      <template v-else>
       <div class="eval-run-meta">
         <strong>{{ current?.label || detail.id }}</strong>
         <span v-if="current?.note">{{ current.note }}</span>
@@ -161,6 +261,7 @@
           </div>
         </section>
       </div>
+      </template>
     </template>
   </section>
 </template>
@@ -177,6 +278,11 @@ const loadingRuns = ref(true)
 const loadingDetail = ref(false)
 const error = ref('')
 const expanded = ref({})
+const mode = ref('single')
+const compareRightId = ref('')
+const compareData = ref(null)
+const compareLoading = ref(false)
+const compareError = ref('')
 
 const keyRuns = computed(() => runs.value.filter((run) => run.pinned))
 const otherRuns = computed(() => runs.value.filter((run) => !run.pinned))
@@ -210,6 +316,51 @@ async function loadRun() {
   } finally {
     loadingDetail.value = false
   }
+}
+
+function enterCompare() {
+  mode.value = 'compare'
+  if (!compareRightId.value && runs.value.length > 1) {
+    compareRightId.value =
+      runs.value.find((run) => run.id !== runId.value)?.id || ''
+  }
+  loadCompare()
+}
+
+async function loadCompare() {
+  if (mode.value !== 'compare' || !runId.value || !compareRightId.value) return
+  compareLoading.value = true
+  compareError.value = ''
+  compareData.value = null
+  try {
+    compareData.value = await apiFetch(
+      `/api/eval/compare?left=${encodeURIComponent(runId.value)}&right=${encodeURIComponent(compareRightId.value)}`,
+    )
+  } catch (err) {
+    compareError.value = err.message || '对比加载失败'
+  } finally {
+    compareLoading.value = false
+  }
+}
+
+function fmtDelta(value, suffix = '') {
+  if (value === 0) return `0${suffix}`
+  return value > 0 ? `+${value}${suffix}` : `${value}${suffix}`
+}
+
+// 改善 = 绿、变差 = 红。耗时/失败数/检查失败是越低越好，
+// 通过数/通过率是越高越好，所以调用方要传 lowerIsBetter。
+function deltaClass(diff, lowerIsBetter = true) {
+  if (diff === 0) return 'cmp-same'
+  const improved = lowerIsBetter ? diff < 0 : diff > 0
+  return improved ? 'cmp-better' : 'cmp-worse'
+}
+
+function passRateDelta() {
+  if (!compareData.value) return 0
+  return Number(
+    ((compareData.value.right.pass_rate - compareData.value.left.pass_rate) * 100).toFixed(1),
+  )
 }
 
 async function toggleCase(caseId) {

@@ -3,7 +3,7 @@
     <div class="avatar" aria-hidden="true">{{ message.role === 'user' ? '我' : '法' }}</div>
     <div class="bubble">
       <div v-if="message.role === 'user'" class="user-text">{{ message.content }}</div>
-      <div v-else class="markdown" v-html="html"></div>
+      <div v-else class="markdown" v-html="html" @click="onMarkdownClick"></div>
 
       <div v-if="message.role === 'assistant' && message.citations?.length" class="chips">
         <button
@@ -72,16 +72,27 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { renderMarkdown } from '../markdown'
+import { linkCitations, renderMarkdown } from '../markdown'
 import { useChatStore } from '../stores/chat'
 import { apiFetch } from '../http'
 
 const props = defineProps({ message: { type: Object, required: true } })
-defineEmits(['citation-click'])
+const emit = defineEmits(['citation-click'])
 
 const store = useChatStore()
-const html = computed(() => renderMarkdown(props.message.content))
+const html = computed(() =>
+  linkCitations(renderMarkdown(props.message.content), props.message.citations || []),
+)
 const copied = ref(false)
+
+function onMarkdownClick(event) {
+  const link = event.target.closest('.cite-inline')
+  if (!link) return
+  const index = Number(link.dataset.cite)
+  if (Number.isInteger(index) && index >= 0) {
+    emit('citation-click', props.message.citations || [], index)
+  }
+}
 
 const feedbackOpen = ref(false)
 const feedbackCategory = ref('引用错误')

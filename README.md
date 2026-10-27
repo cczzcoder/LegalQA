@@ -104,8 +104,8 @@ npm run build
 - 聊天：`POST /api/sessions/{id}/chat`，SSE，事件类型 `status / delta / reset / replace / citations / meta / done / error`
 - 法条库：`GET /api/laws`（目录与统计）、`GET /api/laws/articles?law=&q=&offset=&limit=`
   - 支持按法律浏览、全文关键词（中文 bigram）、`第八十七条`/`87` 条号定位
-- 评测看板：`GET /api/eval/runs`、`GET /api/eval/runs/{id}`、`GET /api/eval/runs/{id}/cases/{case_id}`
-  - 只读 `data/eval/*.json`，不重跑模型；失败用例可展开看答案与检索材料
+- 评测看板：`GET /api/eval/runs`、`GET /api/eval/runs/{id}`、`GET /api/eval/runs/{id}/cases/{case_id}`、`GET /api/eval/compare?left=&right=`
+  - 只读 `data/eval/*.json`，不重跑模型；失败用例可展开看答案与检索材料；支持两个批次并排对比（通过率/耗时/失败数与各检查项差量，绿=变好、红=变差）
 - 反馈：`POST /api/feedback`（登录用户对某条回答提交反馈，含回答快照）
 - 管理端（仅 `role=admin`，`/api/admin/*` 前缀）：
   - 概览：`GET /api/admin/overview`（未读反馈、待处理导入、索引落后、版本年限提醒）
@@ -119,7 +119,7 @@ npm run build
   - 聊天：默认 10 次/分钟、60 次/小时/用户
   - 登录：8 次/分钟/IP + 4 次/分钟/用户名；注册：5 次/分钟/IP
   - 环境变量见 `.env.example`；多 worker 部署时换 Redis
-- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；登录/注册、流式聊天、法条引用侧栏、服务端历史会话、法条库浏览、评测看板、回答反馈、管理端（反馈/导入/语料/提醒）、移动端抽屉
+- 前端：Vue 3 + Vite + Pinia + Element Plus + marked/DOMPurify；登录/注册、流式聊天、法条引用侧栏、**回答内引用点击定位**（《法》第X条可点击，面板滚动高亮对应条文）、服务端历史会话、法条库浏览、评测看板（含批次对比）、回答反馈、管理端（反馈/导入/语料/提醒）、移动端抽屉
 - API Key 只在服务端 `.env`，前端不接触密钥
 
 移动端实测（764px 视口；桌面 >1024px 为侧栏 + 聊天 + 法条面板固定三栏）：
@@ -182,5 +182,5 @@ docker compose up -d --build    # 读取 .env（可用 .env.production.example �
 ## 下一步
 
 1. Web 生产化二期：Postgres/Redis（多 worker 限流）、邮箱验证/找回密码、部署脚本与反向代理（一期 CSRF/安全头/审计/Docker 已完成）。
-2. 前端增强：引用点击定位、评测批次对比；自动更新二期（官方库联网检查提醒）。
+2. 前端增强：自动更新二期（官方库联网检查提醒）。
 3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。

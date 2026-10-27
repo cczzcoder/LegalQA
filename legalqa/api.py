@@ -243,6 +243,59 @@ def create_app(
             raise HTTPException(status_code=404, detail="评测用例不存在")
         return case
 
+    @app.get("/api/eval/compare")
+    def eval_compare(
+        left: str,
+        right: str,
+        request: Request,
+    ) -> dict[str, Any]:
+        store = request.app.state.evals
+        a = store.detail(left)
+        b = store.detail(right)
+        if a is None or b is None:
+            raise HTTPException(status_code=404, detail="评测结果不存在")
+
+        def _summary(item: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "id": item["id"],
+                "label": item["label"],
+                "case_count": item["case_count"],
+                "passed": item["passed"],
+                "pass_rate": item["pass_rate"],
+                "avg_latency_ms": item["avg_latency_ms"],
+                "failures": [f["id"] for f in item["failures"]],
+            }
+
+        checks_a = {c["name"]: c for c in a["checks"]}
+        checks_b = {c["name"]: c for c in b["checks"]}
+        names = list(dict.fromkeys([*checks_a.keys(), *checks_b.keys()]))
+        rows = []
+        for name in names:
+            ca, cb = checks_a.get(name), checks_b.get(name)
+            rows.append(
+                {
+                    "name": name,
+                    "left": (
+                        {"failed": ca["failed"], "total": ca["total"], "fail_rate": ca["fail_rate"]}
+                        if ca
+                        else None
+                    ),
+                    "right": (
+                        {"failed": cb["failed"], "total": cb["total"], "fail_rate": cb["fail_rate"]}
+                        if cb
+                        else None
+                    ),
+                }
+            )
+        failures_a = {f["id"] for f in a["failures"]}
+        failures_b = {f["id"] for f in b["failures"]}
+        return {
+            "left": _summary(a),
+            "right": _summary(b),
+            "checks": rows,
+            "common_failures": sorted(failures_a & failures_b),
+        }
+
     # -- 登录 / 注册 ---------------------------------------------------
     @app.post("/api/auth/register")
     def register(

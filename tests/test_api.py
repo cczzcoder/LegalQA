@@ -101,6 +101,13 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CsrfClient:
     (eval_dir / "qwen37_fact_100.json").write_text(
         json.dumps(EVAL_CASES, ensure_ascii=False), encoding="utf-8"
     )
+    other = [dict(case) for case in EVAL_CASES]
+    other[1]["passed"] = False
+    other[1]["checks"] = [{"name": "引用可溯源", "passed": False, "detail": "未检索到"}]
+    other[1]["retrieval_coverage"] = {"passed": False, "detail": "top-6 未覆盖"}
+    (eval_dir / "qwen37_100_a.json").write_text(
+        json.dumps(other, ensure_ascii=False), encoding="utf-8"
+    )
     app = api.create_app(tmp_path / "test.db", docs_path=docs, eval_dir=eval_dir)
     return CsrfClient(app)
 
@@ -246,3 +253,23 @@ def test_eval_dashboard(client: TestClient) -> None:
 
     assert client.get("/api/eval/runs/missing").status_code == 404
     assert client.get("/api/eval/runs/qwen37_fact_100/cases/missing").status_code == 404
+
+
+def test_eval_compare(client: TestClient) -> None:
+    data = client.get(
+        "/api/eval/compare",
+        params={"left": "qwen37_fact_100", "right": "qwen37_100_a"},
+    ).json()
+    assert data["left"]["id"] == "qwen37_fact_100"
+    assert data["right"]["passed"] == 1
+    rows = {row["name"]: row for row in data["checks"]}
+    assert rows["引用可溯源"]["left"]["failed"] == 1
+    assert rows["引用可溯源"]["right"]["failed"] == 1
+    assert rows["检索覆盖"]["right"]["failed"] == 1
+    assert data["common_failures"] == ["c2"]
+
+    missing = client.get(
+        "/api/eval/compare",
+        params={"left": "qwen37_fact_100", "right": "missing"},
+    )
+    assert missing.status_code == 404

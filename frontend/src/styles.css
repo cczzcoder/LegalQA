@@ -550,6 +550,20 @@ button {
   color: var(--navy-2);
 }
 
+.cite-inline {
+  color: var(--navy-2);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.cite-inline:hover {
+  color: #1b4d78;
+  text-decoration-style: solid;
+}
+
 /* Citation chips */
 .chips {
   display: flex;
@@ -843,6 +857,20 @@ button {
 .citation-card.active {
   border-color: rgba(200, 164, 92, 0.8);
   box-shadow: 0 6px 20px rgba(18, 58, 92, 0.06);
+}
+
+.citation-card.flash {
+  animation: cite-flash 1.6s ease;
+}
+
+@keyframes cite-flash {
+  0%,
+  100% {
+    background: #fff;
+  }
+  30% {
+    background: #fdf3dc;
+  }
 }
 
 .cite-top {
