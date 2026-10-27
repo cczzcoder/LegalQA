@@ -4,7 +4,7 @@
       <div class="login-brand">
         <div class="brand-mark">法</div>
         <div class="brand-text">
-          <strong>LegalMind</strong>
+          <strong>LegalQA</strong>
           <span>中文法律问答</span>
         </div>
       </div>

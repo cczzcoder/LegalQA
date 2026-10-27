@@ -22,7 +22,7 @@
     <main class="main">
       <header class="topbar">
         <div class="topbar-title">
-          <span class="eyebrow">LEGALMIND</span>
+          <span class="eyebrow">LEGALQA</span>
           <h1>{{ viewTitle }}</h1>
         </div>
         <div class="topbar-actions">

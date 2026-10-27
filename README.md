@@ -1,4 +1,8 @@
-# LegalMind · 中文法律问答（LangGraph + RAG）
+# LegalQA · 中文法律问答（LangGraph + RAG）
+
+> 独立项目说明：本仓库是「阶段 0 长对话法律问答」的重写版（LangGraph + RAG + Vue 全栈），
+> 与原项目 **LegalMind**（律师/法务向法律信息辅助系统，`github.com/cczzcoder/LegalMind`）
+> 是两个不同的项目，各自独立演进。
 
 给普通用户用的中文法律问答。用户用大白话描述处境（「老板没签劳动合同干了快一年，能要双倍工资吗」），系统检索中国法条并给出**带引用、带版本、可溯源**的回答。
 
@@ -140,7 +144,7 @@ npm run build
 
 ```bash
 # 1) 先注册一个普通账号（如 demo），再在 .env 里指定它为管理员
-LEGALMIND_ADMIN_USERNAME=demo
+LEGALQA_ADMIN_USERNAME=demo
 ./.venv/Scripts/python.exe -m uvicorn legalqa.api:app --host 127.0.0.1 --port 8000
 ```
 
@@ -156,7 +160,7 @@ docker compose up -d --build    # 读取 .env（可用 .env.production.example �
 ```
 
 - `Dockerfile`：多阶段构建（前端构建 + 后端运行时）；语料/评测打进镜像，`/app/data` 卷存运行数据；启动时按 `.env` 自动重建向量索引
-- 生产要求：HTTPS 反向代理后置 `LEGALMIND_COOKIE_SECURE=1`，并指定 `LEGALMIND_ADMIN_USERNAME`
+- 生产要求：HTTPS 反向代理后置 `LEGALQA_COOKIE_SECURE=1`，并指定 `LEGALQA_ADMIN_USERNAME`
 - 多 worker / Postgres / Redis 是二期（当前限流在进程内、SQLite 单写）
 
 ## 已知限制
@@ -166,7 +170,7 @@ docker compose up -d --build    # 读取 .env（可用 .env.production.example �
 - Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流在进程内，多 worker 需换 Redis。
 - 法条库读 `data/index/qwen37/docs.json`（索引缺失时回落到 `data/corpus/all.jsonl`）；评测看板读 `data/eval/*.json`，两者都不调用模型。
 - 文献导入的「自动更新」目前只做站内提醒（反馈/索引/版本年限）+ 导入时新旧比对，未联网抓取官方数据库（有反爬与网页改版风险，列为二期）。
-- 生产部署建议 HTTPS + `LEGALMIND_COOKIE_SECURE=1`，并补 CSRF token/反向代理限流。
+- 生产部署建议 HTTPS + `LEGALQA_COOKIE_SECURE=1`，并补 CSRF token/反向代理限流。
 - 阶段 0 是只读问答：不写文件、不调外部业务系统；阶段 1 的审批/写操作字段只预留未接线。
 
 ## 文档

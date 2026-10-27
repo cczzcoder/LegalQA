@@ -253,7 +253,7 @@ def test_apply_import_incremental_index(tmp_path: Path) -> None:
 def admin_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(api, "get_service", lambda: FakeService())
     monkeypatch.setattr(importer, "_embedder", lambda: HashEmbeddings())
-    monkeypatch.setenv("LEGALMIND_ADMIN_USERNAME", "boss")
+    monkeypatch.setenv("LEGALQA_ADMIN_USERNAME", "boss")
 
     runtime = make_importer(tmp_path / "runtime")
     # 管理员必须在应用启动前存在，才能被环境变量提升。

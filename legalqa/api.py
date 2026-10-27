@@ -31,13 +31,13 @@ __all__ = ["app", "create_app", "AuthRequest", "ChatQuery", "SessionCreate"]
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "frontend" / "dist"
 
-COOKIE_SECURE = os.environ.get("LEGALMIND_COOKIE_SECURE", "0") == "1"
+COOKIE_SECURE = os.environ.get("LEGALQA_COOKIE_SECURE", "0") == "1"
 CSRF_COOKIE_NAME = "lm_csrf"
 CSRF_HEADER_NAME = "X-CSRF-Token"
-CHAT_PER_MINUTE = int(os.environ.get("LEGALMIND_CHAT_PER_MINUTE", "10"))
-CHAT_PER_HOUR = int(os.environ.get("LEGALMIND_CHAT_PER_HOUR", "60"))
-LOGIN_PER_MINUTE = int(os.environ.get("LEGALMIND_LOGIN_PER_MINUTE", "8"))
-REGISTER_PER_MINUTE = int(os.environ.get("LEGALMIND_REGISTER_PER_MINUTE", "5"))
+CHAT_PER_MINUTE = int(os.environ.get("LEGALQA_CHAT_PER_MINUTE", "10"))
+CHAT_PER_HOUR = int(os.environ.get("LEGALQA_CHAT_PER_HOUR", "60"))
+LOGIN_PER_MINUTE = int(os.environ.get("LEGALQA_LOGIN_PER_MINUTE", "8"))
+REGISTER_PER_MINUTE = int(os.environ.get("LEGALQA_REGISTER_PER_MINUTE", "5"))
 
 
 class AuthRequest(BaseModel):
@@ -132,7 +132,7 @@ def create_app(
     importer: Importer | None = None,
 ) -> FastAPI:
     load_dotenv()
-    app = FastAPI(title="LegalMind API", version="0.2.0")
+    app = FastAPI(title="LegalQA API", version="0.2.0")
     app.state.db = Database(db_path or ROOT / "data/app.db")
     app.state.limiter = RateLimiter()
     app.state.catalog = LawCatalog(docs_path)
@@ -178,7 +178,7 @@ def create_app(
         )
         return response
 
-    admin_username = os.environ.get("LEGALMIND_ADMIN_USERNAME", "").strip()
+    admin_username = os.environ.get("LEGALQA_ADMIN_USERNAME", "").strip()
     if admin_username:
         promoted = app.state.db.set_admin(admin_username)
         if promoted:
@@ -199,7 +199,7 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "service": "LegalMind"}
+        return {"status": "ok", "service": "LegalQA"}
 
     # -- 法条库浏览（公开只读） -----------------------------------------
     @app.get("/api/laws")

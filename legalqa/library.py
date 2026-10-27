@@ -60,7 +60,7 @@ _ALNUM = re.compile(r"[a-zA-Z0-9]{2,}")
 
 
 def default_docs_path() -> Path:
-    env = os.environ.get("LEGALMIND_LAW_DOCS")
+    env = os.environ.get("LEGALQA_LAW_DOCS")
     if env:
         return Path(env)
     indexed = ROOT / "data" / "index" / "qwen37" / "docs.json"
@@ -70,7 +70,7 @@ def default_docs_path() -> Path:
 
 
 def default_eval_dir() -> Path:
-    return Path(os.environ.get("LEGALMIND_EVAL_DIR") or EVAL_DIR)
+    return Path(os.environ.get("LEGALQA_EVAL_DIR") or EVAL_DIR)
 
 
 def _load_rows(path: Path) -> list[dict[str, Any]]:

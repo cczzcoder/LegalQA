@@ -3,7 +3,7 @@
     <div class="brand">
       <div class="brand-mark">法</div>
       <div class="brand-text">
-        <strong>LegalMind</strong>
+        <strong>LegalQA</strong>
         <span>中文法律问答</span>
       </div>
       <button class="sidebar-close" aria-label="关闭菜单" @click="$emit('close')">×</button>
