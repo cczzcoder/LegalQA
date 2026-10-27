@@ -129,7 +129,10 @@
           <button type="button" class="forgot-link" @click="switchMode('login')">返回登录</button>
         </form>
 
-        <p class="login-note">账号只用于保存会话；密码经 PBKDF2 加盐存储。</p>
+        <p class="login-note">
+          账号只用于保存会话；密码经 PBKDF2 加盐存储。<br />
+          本项目未备案，仅限个人学习 / 学术研究 / 内部数据分析。
+        </p>
       </div>
     </section>
   </div>
