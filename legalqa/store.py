@@ -83,14 +83,169 @@ class RateLimiter:
             return 0
 
 
+class RedisRateLimiter:
+    """Redis 滑动窗口限流（ZSET），多 worker 共享计数。
+
+    语义与进程内 RateLimiter 一致：窗口内命中数达上限即拒绝并给出
+    retry-after（取最老命中的剩余时间）。
+    """
+
+    def __init__(self, url: str) -> None:
+        import redis
+
+        self._client = redis.Redis.from_url(url, decode_responses=True)
+
+    def retry_after(self, key: str, limit: int, window: float) -> int:
+        now = time.time()
+        self._client.zremrangebyscore(key, 0, now - window)
+        count = self._client.zcard(key)
+        if count >= max(limit, 1):
+            oldest = self._client.zrange(key, 0, 0, withscores=True)
+            if oldest:
+                return max(1, int(window - (now - float(oldest[0][1]))) + 1)
+            return int(window)
+        member = f"{now:.6f}:{uuid.uuid4().hex[:8]}"
+        self._client.zadd(key, {member: now})
+        self._client.expire(key, int(window) + 1)
+        return 0
+
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS messages (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    citations_json TEXT NOT NULL DEFAULT '[]',
+    meta_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS feedback (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    comment TEXT NOT NULL DEFAULT '',
+    question TEXT NOT NULL DEFAULT '',
+    answer TEXT NOT NULL DEFAULT '',
+    citations_json TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS imports (
+    id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    stored_path TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'uploaded',
+    law_name TEXT NOT NULL DEFAULT '',
+    version_date TEXT NOT NULL DEFAULT '',
+    article_count INTEGER NOT NULL DEFAULT 0,
+    report_json TEXT NOT NULL DEFAULT '{}',
+    error TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    applied_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL DEFAULT '',
+    username TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user
+    ON chat_sessions(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_session
+    ON messages(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_tokens_user ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_status
+    ON feedback(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_imports_status
+    ON imports(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_created
+    ON audit_log(created_at DESC);
+"""
+
+# Postgres 方言差异：自增主键与 float8。
+_SCHEMA_PG = (
+    _SCHEMA.replace(
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,",
+        "id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,",
+    ).replace("expires_at REAL NOT NULL", "expires_at DOUBLE PRECISION NOT NULL")
+)
+
+
+class _PGAdapter:
+    """psycopg 连接包装：把 sqlite 风格 SQL（? 占位）透明翻译成 %s。
+
+    本模块所有方法共用同一套 SQL 文本，Postgres 只需换占位符与建表方言。
+    """
+
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params=()):
+        cursor = self._conn.execute(sql.replace("?", "%s"), params)
+        self.rowcount = cursor.rowcount
+        return cursor
+
+
 class Database:
-    def __init__(self, path: str | Path) -> None:
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+    """SQLite（默认，传 path）或 Postgres（传 postgresql:// 的 url）存储层。"""
+
+    def __init__(
+        self, path: str | Path | None = None, url: str | None = None
+    ) -> None:
+        if url:
+            import psycopg
+
+            self.pg = True
+            self._pg_conn = psycopg.connect(
+                url, row_factory=psycopg.rows.dict_row, autocommit=True
+            )
+            self.path: Path | None = None
+        else:
+            if path is None:
+                raise ValueError("SQLite 模式必须提供 path")
+            self.pg = False
+            self._pg_conn = None
+            self.path = Path(path)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self.init_schema()
 
     @contextmanager
-    def _conn(self) -> Iterator[sqlite3.Connection]:
+    def _conn(self):
+        if self.pg:
+            yield _PGAdapter(self._pg_conn)
+            return
         conn = sqlite3.connect(self.path, timeout=10)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
@@ -102,96 +257,23 @@ class Database:
             conn.close()
 
     def init_schema(self) -> None:
+        if self.pg:
+            with self._conn() as conn:
+                for statement in (s.strip() for s in _SCHEMA_PG.split(";") if s.strip()):
+                    conn.execute(statement)
+        else:
+            with self._conn() as conn:
+                conn.executescript(_SCHEMA)
+        # 旧库迁移：role 列是后加的，CREATE TABLE IF NOT EXISTS 不会补列。
         with self._conn() as conn:
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    username TEXT UNIQUE NOT NULL,
-                    salt TEXT NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    role TEXT NOT NULL DEFAULT 'user',
-                    created_at TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS auth_tokens (
-                    token_hash TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    expires_at REAL NOT NULL,
-                    created_at TEXT NOT NULL,
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS chat_sessions (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS messages (
-                    id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    citations_json TEXT NOT NULL DEFAULT '[]',
-                    meta_json TEXT NOT NULL DEFAULT '{}',
-                    created_at TEXT NOT NULL,
-                    FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS feedback (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    session_id TEXT NOT NULL,
-                    message_id TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    comment TEXT NOT NULL DEFAULT '',
-                    question TEXT NOT NULL DEFAULT '',
-                    answer TEXT NOT NULL DEFAULT '',
-                    citations_json TEXT NOT NULL DEFAULT '[]',
-                    status TEXT NOT NULL DEFAULT 'open',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS imports (
-                    id TEXT PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    stored_path TEXT NOT NULL,
-                    size_bytes INTEGER NOT NULL DEFAULT 0,
-                    status TEXT NOT NULL DEFAULT 'uploaded',
-                    law_name TEXT NOT NULL DEFAULT '',
-                    version_date TEXT NOT NULL DEFAULT '',
-                    article_count INTEGER NOT NULL DEFAULT 0,
-                    report_json TEXT NOT NULL DEFAULT '{}',
-                    error TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL,
-                    applied_at TEXT NOT NULL DEFAULT ''
-                );
-                CREATE TABLE IF NOT EXISTS audit_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL DEFAULT '',
-                    username TEXT NOT NULL DEFAULT '',
-                    action TEXT NOT NULL,
-                    detail TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sessions_user
-                    ON chat_sessions(user_id, updated_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_messages_session
-                    ON messages(session_id, created_at);
-                CREATE INDEX IF NOT EXISTS idx_tokens_user ON auth_tokens(user_id);
-                CREATE INDEX IF NOT EXISTS idx_feedback_status
-                    ON feedback(status, created_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_imports_status
-                    ON imports(status, created_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_audit_created
-                    ON audit_log(created_at DESC);
-                """
-            )
-            # 旧库迁移：role 列是后加的，CREATE TABLE IF NOT EXISTS 不会补列。
-            columns = {
-                row["name"] for row in conn.execute("PRAGMA table_info(users)")
-            }
+            if self.pg:
+                rows = conn.execute(
+                    "SELECT column_name AS name FROM information_schema.columns "
+                    "WHERE table_name = 'users'"
+                ).fetchall()
+            else:
+                rows = conn.execute("PRAGMA table_info(users)").fetchall()
+            columns = {row["name"] for row in rows}
             if "role" not in columns:
                 conn.execute(
                     "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"

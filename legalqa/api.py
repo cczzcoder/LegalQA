@@ -24,6 +24,7 @@ from legalqa.store import (
     TOKEN_TTL_SECONDS,
     Database,
     RateLimiter,
+    RedisRateLimiter,
 )
 
 __all__ = ["app", "create_app", "AuthRequest", "ChatQuery", "SessionCreate"]
@@ -130,11 +131,20 @@ def create_app(
     docs_path: str | Path | None = None,
     eval_dir: str | Path | None = None,
     importer: Importer | None = None,
+    db_url: str | None = None,
+    redis_url: str | None = None,
 ) -> FastAPI:
     load_dotenv()
     app = FastAPI(title="LegalQA API", version="0.2.0")
-    app.state.db = Database(db_path or ROOT / "data/app.db")
-    app.state.limiter = RateLimiter()
+    database_url = db_url or os.environ.get("LEGALQA_DATABASE_URL", "")
+    redis_url = redis_url or os.environ.get("LEGALQA_REDIS_URL", "")
+    if database_url:
+        app.state.db = Database(url=database_url)
+    else:
+        app.state.db = Database(path=db_path or ROOT / "data/app.db")
+    app.state.limiter = (
+        RedisRateLimiter(redis_url) if redis_url else RateLimiter()
+    )
     app.state.catalog = LawCatalog(docs_path)
     app.state.evals = EvalStore(eval_dir)
     app.state.importer = importer or Importer()

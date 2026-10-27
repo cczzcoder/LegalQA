@@ -153,21 +153,33 @@ LEGALQA_ADMIN_USERNAME=demo
 - 导入：「导入」页上传 .docx/.pdf → 点「分析」看查重/时效报告 → 「确认入库（替换旧版）」。入库会备份语料到 `data/backups/`、增量更新向量索引；若 embedding 暂不可用，语料仍入库，概览页会提示「索引落后」，重启服务后自动全量重建。
 - 概览页提醒：未读反馈数、待处理导入、索引落后、无版本日期/版本超 5 年的法律。
 
-### Docker 部署（单进程 MVP）
+### Docker 部署（app + Postgres + Redis）
 
 ```bash
 docker compose up -d --build    # 读取 .env（可用 .env.production.example 改出）
 ```
 
 - `Dockerfile`：多阶段构建（前端构建 + 后端运行时）；语料/评测打进镜像，`/app/data` 卷存运行数据；启动时按 `.env` 自动重建向量索引
+- `docker-compose.yml`：app + postgres(pg17) + redis；配了 `LEGALQA_DATABASE_URL`/`LEGALQA_REDIS_URL` 即启用外置存储与多 worker 共享限流
+- 本地不跑 compose 时也可单独起数据库容器跑集成测试：
+
+```bash
+docker run -d --name legalqa-pg-test -e POSTGRES_USER=legalqa \
+    -e POSTGRES_PASSWORD=legalqa -e POSTGRES_DB=legalqa \
+    -p 127.0.0.1:5433:5432 pgvector/pgvector:pg17
+docker run -d --name legalqa-redis-test -p 127.0.0.1:6380:6379 redis:7-alpine
+LEGALQA_TEST_DATABASE_URL=postgresql://legalqa:legalqa@127.0.0.1:5433/legalqa \
+LEGALQA_TEST_REDIS_URL=redis://127.0.0.1:6380/0 \
+./.venv/Scripts/python.exe -m pytest tests/test_postgres.py -v
+```
+
 - 生产要求：HTTPS 反向代理后置 `LEGALQA_COOKIE_SECURE=1`，并指定 `LEGALQA_ADMIN_USERNAME`
-- 多 worker / Postgres / Redis 是二期（当前限流在进程内、SQLite 单写）
 
 ## 已知限制
 
 - 100 条剩余失败全部是「未引用期望法条」（检索未召回或模型未选择引用），属逐案检索/选择问题；编造条号已被输出护栏剥离，过度拒答已由「部分覆盖先作答」提示词修复。
 - 合成金标是弱标签；34 条手工集样本小。
-- Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流在进程内，多 worker 需换 Redis。
+- Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流默认进程内，配 `LEGALQA_REDIS_URL` 即切 Redis 滑动窗口（多 worker 共享）。
 - 法条库读 `data/index/qwen37/docs.json`（索引缺失时回落到 `data/corpus/all.jsonl`）；评测看板读 `data/eval/*.json`，两者都不调用模型。
 - 文献导入的「自动更新」目前只做站内提醒（反馈/索引/版本年限）+ 导入时新旧比对，未联网抓取官方数据库（有反爬与网页改版风险，列为二期）。
 - 生产部署建议 HTTPS + `LEGALQA_COOKIE_SECURE=1`，并补 CSRF token/反向代理限流。
@@ -181,6 +193,6 @@ docker compose up -d --build    # 读取 .env（可用 .env.production.example �
 
 ## 下一步
 
-1. Web 生产化二期：Postgres/Redis（多 worker 限流）、邮箱验证/找回密码、部署脚本与反向代理（一期 CSRF/安全头/审计/Docker 已完成）。
+1. Web 生产化收尾：邮箱验证/找回密码（SMTP，控制台模式先行）、部署脚本与反向代理示例。
 2. 前端增强：自动更新二期（官方库联网检查提醒）。
 3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。

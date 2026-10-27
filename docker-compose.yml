@@ -1,5 +1,6 @@
-# 单进程 MVP 部署：app + 数据卷。
-# 多 worker / Postgres / Redis 是二期（本仓库默认 SQLite + 进程内限流）。
+# 生产部署：app + Postgres + Redis。
+# 本地开发只跑 app（默认 SQLite + 进程内限流）也可以；配了 LEGALQA_DATABASE_URL
+# 才切 Postgres、LEGALQA_REDIS_URL 才切 Redis（多 worker 共享限流）。
 services:
   app:
     build: .
@@ -10,9 +11,50 @@ services:
       - .env
     environment:
       - LEGALQA_COOKIE_SECURE=0   # HTTPS 反向代理下改 1
+      - LEGALQA_DATABASE_URL=postgresql://legalqa:${POSTGRES_PASSWORD:-legalqa}@postgres:5432/legalqa
+      - LEGALQA_REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - legalqa-data:/app/data
     restart: unless-stopped
 
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: legalqa-postgres
+    environment:
+      POSTGRES_USER: legalqa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-legalqa}
+      POSTGRES_DB: legalqa
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - legalqa-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalqa -d legalqa"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: legalqa-redis
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - legalqa-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
 volumes:
   legalqa-data:
+  legalqa-pg:
+  legalqa-redis:
