@@ -315,3 +315,15 @@ def test_strip_backfill_appendix_passthrough() -> None:
 
     assert strip_backfill_appendix("普通回答") == "普通回答"
     assert strip_backfill_appendix("") == ""
+
+
+def test_refusal_recognizes_out_of_scope_wording() -> None:
+    """074 类：明确说明「不属于法律范畴、无需检索」应算合格的拒答说明。"""
+    from legalqa.eval import check_refusal
+
+    text = (
+        "该问题不属于法律适用范畴，因此无需调用 read_law 工具检索法条。\n"
+        "结论：就业方向可参考教育部门公开信息。"
+    )
+    assert check_refusal(text, False).passed
+    assert not check_refusal(text, True).passed
