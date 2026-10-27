@@ -944,7 +944,7 @@ button {
 
   .panel-backdrop {
     position: fixed;
-    inset: 64px 0 0;
+    inset: var(--topbar-h, 64px) 0 0;
     z-index: 29;
     display: block;
     background: rgba(8, 24, 40, 0.28);
@@ -1004,7 +1004,7 @@ button {
 
   .citation-panel {
     position: fixed;
-    top: 64px;
+    top: var(--topbar-h, 64px);
     right: 0;
     bottom: 0;
     z-index: 30;

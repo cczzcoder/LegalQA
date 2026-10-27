@@ -20,7 +20,7 @@
     />
 
     <main class="main">
-      <header class="topbar">
+      <header ref="topbarEl" class="topbar">
         <div class="topbar-title">
           <span class="eyebrow">LEGALQA</span>
           <h1>{{ viewTitle }}</h1>
@@ -138,6 +138,7 @@ import { useChatStore } from './stores/chat'
 const auth = useAuthStore()
 const store = useChatStore()
 const scrollEl = ref(null)
+const topbarEl = ref(null)
 const isMobile = ref(window.innerWidth < 1024)
 const showCitations = ref(!isMobile.value)
 const sidebarOpen = ref(false)
@@ -176,6 +177,18 @@ function switchView(next) {
   view.value = next
   sidebarOpen.value = false
   showCitations.value = next === 'chat' && !isMobile.value
+  syncTopbarHeight()
+}
+
+// 顶栏在窄屏会换行，高度不固定（64~72px）。法条面板/遮罩必须贴住它的
+// 真实底部，否则会压住顶栏第二行。
+function syncTopbarHeight() {
+  nextTick(() => {
+    const height = topbarEl.value?.getBoundingClientRect().height
+    if (height) {
+      document.documentElement.style.setProperty('--topbar-h', `${height}px`)
+    }
+  })
 }
 
 function onExample(question) {
@@ -243,6 +256,7 @@ watch(
 
 onMounted(async () => {
   await auth.me()
+  syncTopbarHeight()
   window.addEventListener('resize', () => {
     isMobile.value = window.innerWidth < 1024
     if (isMobile.value) {
@@ -251,6 +265,7 @@ onMounted(async () => {
     } else if (view.value === 'chat') {
       showCitations.value = true
     }
+    syncTopbarHeight()
   })
 })
 </script>
