@@ -119,6 +119,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { apiFetch } from '../http'
 
 const stats = ref({ total_laws: 0, total_articles: 0, valid_articles: 0 })
 const laws = ref([])
@@ -141,13 +142,6 @@ const filteredLaws = computed(() => {
 let timer = null
 let requestSeq = 0
 
-async function getJSON(url) {
-  const response = await fetch(url, { credentials: 'include' })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
-  return data
-}
-
 async function load(target = 1) {
   const seq = ++requestSeq
   loading.value = true
@@ -159,7 +153,7 @@ async function load(target = 1) {
   if (activeLaw.value) params.set('law', activeLaw.value)
   if (query.value.trim()) params.set('q', query.value.trim())
   try {
-    const data = await getJSON(`/api/laws/articles?${params}`)
+    const data = await apiFetch(`/api/laws/articles?${params}`)
     if (seq !== requestSeq) return
     items.value = data.items
     total.value = data.total
@@ -173,7 +167,7 @@ async function load(target = 1) {
 
 async function bootstrap() {
   try {
-    const data = await getJSON('/api/laws')
+    const data = await apiFetch('/api/laws')
     stats.value = data.stats
     laws.value = data.laws
   } catch (err) {

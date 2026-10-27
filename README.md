@@ -8,7 +8,7 @@
 
 | 指标 | 结果 | 数据 |
 |---|---|---|
-| 单元/属性测试 | **481 passed** | `pytest tests/ -q` |
+| 单元/属性测试 | **484 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
 | 100 条合成端到端 | **89/100** | `data/eval/qwen37_fact_100.json` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
@@ -52,7 +52,7 @@ START → InputGuard → ContextCompress → Agent ⇄ ToolNode → OutputGuard 
 cp .env.example .env
 
 # 3) 测试
-./.venv/Scripts/python.exe -m pytest tests/ -q          # 481 passed
+./.venv/Scripts/python.exe -m pytest tests/ -q          # 484 passed
 
 # 4) 接入自检（LLM 连通性 / 工具调用 / embedding / 索引）
 ./.venv/Scripts/python.exe -m legalqa.cli --check
@@ -93,6 +93,9 @@ npm run build
 
 - 认证：`POST /api/auth/register` / `login` / `logout`，`GET /api/auth/me`
   - 密码 PBKDF2-SHA256 加盐（200k 次）；登录令牌只存 SHA-256 哈希；httpOnly Cookie，7 天
+  - **CSRF 双提交**：`lm_csrf` cookie + `X-CSRF-Token` 头，所有不安全方法（POST/PATCH/DELETE）校验
+  - **安全响应头**：CSP / X-Frame-Options / X-Content-Type-Options / Referrer-Policy / Permissions-Policy
+  - **审计日志**：登录/注册/退出与管理员操作落 `audit_log`，`GET /api/admin/audit` 查看
 - 会话：`GET/POST /api/sessions`，`GET/DELETE /api/sessions/{id}`
 - 聊天：`POST /api/sessions/{id}/chat`，SSE，事件类型 `status / delta / reset / replace / citations / meta / done / error`
 - 法条库：`GET /api/laws`（目录与统计）、`GET /api/laws/articles?law=&q=&offset=&limit=`
@@ -146,6 +149,16 @@ LEGALMIND_ADMIN_USERNAME=demo
 - 导入：「导入」页上传 .docx/.pdf → 点「分析」看查重/时效报告 → 「确认入库（替换旧版）」。入库会备份语料到 `data/backups/`、增量更新向量索引；若 embedding 暂不可用，语料仍入库，概览页会提示「索引落后」，重启服务后自动全量重建。
 - 概览页提醒：未读反馈数、待处理导入、索引落后、无版本日期/版本超 5 年的法律。
 
+### Docker 部署（单进程 MVP）
+
+```bash
+docker compose up -d --build    # 读取 .env（可用 .env.production.example 改出）
+```
+
+- `Dockerfile`：多阶段构建（前端构建 + 后端运行时）；语料/评测打进镜像，`/app/data` 卷存运行数据；启动时按 `.env` 自动重建向量索引
+- 生产要求：HTTPS 反向代理后置 `LEGALMIND_COOKIE_SECURE=1`，并指定 `LEGALMIND_ADMIN_USERNAME`
+- 多 worker / Postgres / Redis 是二期（当前限流在进程内、SQLite 单写）
+
 ## 已知限制
 
 - 100 条剩余 11 条失败：2 条模型显式编造条号（79/66）、2 条检索到没引、4 条模型工具 query 漏事实、2 条近邻排序、1 条语义 gap。
@@ -164,6 +177,6 @@ LEGALMIND_ADMIN_USERNAME=demo
 
 ## 下一步
 
-1. Web 生产化：Postgres/Redis、邮箱验证/找回密码、部署脚本与反向代理。
+1. Web 生产化二期：Postgres/Redis（多 worker 限流）、邮箱验证/找回密码、部署脚本与反向代理（一期 CSRF/安全头/审计/Docker 已完成）。
 2. 前端增强：引用点击定位、评测批次对比；自动更新二期（官方库联网检查提醒）。
 3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。

@@ -1,11 +1,5 @@
 import { defineStore } from 'pinia'
-
-function errorText(data, fallback) {
-  const detail = data?.detail
-  if (typeof detail === 'string') return detail
-  if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg
-  return fallback
-}
+import { apiFetch, apiFetchRaw } from '../http'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -19,7 +13,8 @@ export const useAuthStore = defineStore('auth', {
     async me() {
       this.loading = true
       try {
-        const response = await fetch('/api/auth/me', { credentials: 'include' })
+        // GET 无需 CSRF 头；后端会给未登录页面补发 CSRF cookie。
+        const response = await apiFetchRaw('/api/auth/me')
         this.user = response.ok ? await response.json() : null
       } catch {
         this.user = null
@@ -41,14 +36,10 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = ''
       try {
-        const response = await fetch(url, {
+        const data = await apiFetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify(payload),
         })
-        const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(errorText(data, '请求失败'))
         this.user = data
         return true
       } catch (error) {
@@ -61,7 +52,7 @@ export const useAuthStore = defineStore('auth', {
 
     async logout() {
       try {
-        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+        await apiFetch('/api/auth/logout', { method: 'POST' })
       } catch {
         /* 用户仍可本地退出 */
       }

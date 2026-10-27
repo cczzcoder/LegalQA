@@ -168,6 +168,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { renderMarkdown } from '../markdown'
+import { apiFetch } from '../http'
 
 const runs = ref([])
 const runId = ref('')
@@ -181,16 +182,9 @@ const keyRuns = computed(() => runs.value.filter((run) => run.pinned))
 const otherRuns = computed(() => runs.value.filter((run) => !run.pinned))
 const current = computed(() => runs.value.find((run) => run.id === runId.value) || null)
 
-async function getJSON(url) {
-  const response = await fetch(url, { credentials: 'include' })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
-  return data
-}
-
 async function bootstrap() {
   try {
-    const data = await getJSON('/api/eval/runs')
+    const data = await apiFetch('/api/eval/runs')
     runs.value = data.runs
     if (runs.value.length) {
       runId.value = runs.value[0].id
@@ -210,7 +204,7 @@ async function loadRun() {
   detail.value = null
   expanded.value = {}
   try {
-    detail.value = await getJSON(`/api/eval/runs/${encodeURIComponent(runId.value)}`)
+    detail.value = await apiFetch(`/api/eval/runs/${encodeURIComponent(runId.value)}`)
   } catch (err) {
     error.value = err.message || '评测结果加载失败'
   } finally {
@@ -227,7 +221,7 @@ async function toggleCase(caseId) {
   }
   expanded.value = { ...expanded.value, [caseId]: { loading: true } }
   try {
-    const data = await getJSON(
+    const data = await apiFetch(
       `/api/eval/runs/${encodeURIComponent(runId.value)}/cases/${encodeURIComponent(caseId)}`,
     )
     expanded.value = { ...expanded.value, [caseId]: { loading: false, data } }

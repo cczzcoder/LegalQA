@@ -1,0 +1,18 @@
+# 单进程 MVP 部署：app + 数据卷。
+# 多 worker / Postgres / Redis 是二期（本仓库默认 SQLite + 进程内限流）。
+services:
+  app:
+    build: .
+    container_name: legalmind
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - LEGALMIND_COOKIE_SECURE=0   # HTTPS 反向代理下改 1
+    volumes:
+      - legalmind-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  legalmind-data:

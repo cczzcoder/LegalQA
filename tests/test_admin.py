@@ -18,6 +18,7 @@ from legalqa.importer import Importer
 from legalqa.llm_factory import HashEmbeddings
 from legalqa.service import ChatEvent
 from legalqa.store import Database
+from tests.csrf_client import CsrfClient
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +268,7 @@ def admin_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         importer=runtime,
     )
     (tmp_path / "eval").mkdir()
-    return TestClient(app)
+    return CsrfClient(app)
 
 
 def _login(client: TestClient, username: str, password: str = "password123") -> None:
@@ -404,3 +405,19 @@ def test_import_rejects_non_admin_and_bad_suffix(admin_client: TestClient) -> No
     )
     assert response.status_code == 400
     assert "格式" in response.json()["detail"]
+
+
+def test_audit_log_admin_only(admin_client: TestClient) -> None:
+    _login(admin_client, "tester")
+    assert admin_client.get("/api/admin/audit").status_code == 403
+    admin_client.post("/api/auth/logout")
+
+    _login(admin_client, "boss")
+    items = admin_client.get("/api/admin/audit").json()["items"]
+    actions = {item["action"] for item in items}
+    assert "login" in actions
+    assert "register" in actions
+    assert any(item["action"] == "login" and item["username"] == "boss" for item in items)
+
+    overview = admin_client.get("/api/admin/overview").json()
+    assert isinstance(overview["recent_audit"], list)

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 import legalqa.api as api
 from legalqa.service import ChatEvent
+from tests.csrf_client import CsrfClient
 
 DOCS = [
     {
@@ -91,7 +92,7 @@ class FakeService:
 
 
 @pytest.fixture()
-def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CsrfClient:
     monkeypatch.setattr(api, "get_service", lambda: FakeService())
     docs = tmp_path / "docs.json"
     docs.write_text(json.dumps(DOCS, ensure_ascii=False), encoding="utf-8")
@@ -101,7 +102,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         json.dumps(EVAL_CASES, ensure_ascii=False), encoding="utf-8"
     )
     app = api.create_app(tmp_path / "test.db", docs_path=docs, eval_dir=eval_dir)
-    return TestClient(app)
+    return CsrfClient(app)
 
 
 def _register(client: TestClient) -> dict:
@@ -115,6 +116,42 @@ def _register(client: TestClient) -> dict:
 
 def test_health(client: TestClient) -> None:
     assert client.get("/api/health").json()["status"] == "ok"
+
+
+def test_security_headers(client: TestClient) -> None:
+    response = client.get("/api/health")
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+    assert "default-src" in response.headers["Content-Security-Policy"]
+
+
+def test_csrf_required_for_unsafe_methods(client: CsrfClient) -> None:
+    bare = TestClient(client.app)
+    assert bare.get("/api/auth/me").status_code == 401  # 未登录但下发 CSRF cookie
+    token = bare.cookies.get("lm_csrf")
+    assert token
+
+    blocked = bare.post(
+        "/api/auth/register",
+        json={"username": "nocsrf", "password": "password123"},
+    )
+    assert blocked.status_code == 403
+
+    allowed = bare.post(
+        "/api/auth/register",
+        json={"username": "nocsrf", "password": "password123"},
+        headers={"X-CSRF-Token": token},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["csrf_token"]
+
+    bad_header = bare.post(
+        "/api/auth/login",
+        json={"username": "nocsrf", "password": "password123"},
+        headers={"X-CSRF-Token": "wrong-token"},
+    )
+    assert bad_header.status_code == 403
 
 
 def test_auth_register_login_me_logout(client: TestClient) -> None:

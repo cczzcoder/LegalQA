@@ -232,6 +232,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { apiFetch } from '../http'
 
 const tabs = [
   { id: 'overview', label: '概览' },
@@ -264,16 +265,9 @@ const filteredLaws = computed(() => {
   return laws.value.filter((law) => law.name.includes(keyword))
 })
 
-async function getJSON(url) {
-  const response = await fetch(url, { credentials: 'include' })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
-  return data
-}
-
 async function loadOverview() {
   try {
-    overview.value = await getJSON('/api/admin/overview')
+    overview.value = await apiFetch('/api/admin/overview')
   } catch (err) {
     error.value = err.message || '概览加载失败'
   }
@@ -283,7 +277,7 @@ async function loadFeedback() {
   const params = new URLSearchParams({ limit: '100' })
   if (feedbackStatus.value) params.set('status', feedbackStatus.value)
   try {
-    feedback.value = await getJSON(`/api/admin/feedback?${params}`)
+    feedback.value = await apiFetch(`/api/admin/feedback?${params}`)
   } catch (err) {
     error.value = err.message || '反馈加载失败'
   }
@@ -291,7 +285,7 @@ async function loadFeedback() {
 
 async function loadImports() {
   try {
-    imports.value = (await getJSON('/api/admin/imports')).items
+    imports.value = (await apiFetch('/api/admin/imports')).items
   } catch (err) {
     error.value = err.message || '导入记录加载失败'
   }
@@ -299,7 +293,7 @@ async function loadImports() {
 
 async function loadLaws() {
   try {
-    laws.value = (await getJSON('/api/laws')).laws
+    laws.value = (await apiFetch('/api/laws')).laws
   } catch (err) {
     error.value = err.message || '语料加载失败'
   }
@@ -307,10 +301,8 @@ async function loadLaws() {
 
 async function patchFeedback(id, status) {
   try {
-    await fetch(`/api/admin/feedback/${id}`, {
+    await apiFetch(`/api/admin/feedback/${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ status }),
     })
     await Promise.all([loadFeedback(), loadOverview()])
@@ -333,13 +325,10 @@ async function uploadFile() {
   const form = new FormData()
   form.append('file', pickedFile.value)
   try {
-    const response = await fetch('/api/admin/imports', {
+    await apiFetch('/api/admin/imports', {
       method: 'POST',
-      credentials: 'include',
       body: form,
     })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
     pickedFile.value = null
     await Promise.all([loadImports(), loadOverview()])
   } catch (err) {
@@ -353,7 +342,7 @@ async function analyzeImport(id) {
   busy.value = `${id}analyze`
   error.value = ''
   try {
-    await fetch(`/api/admin/imports/${id}/analyze`, { method: 'POST', credentials: 'include' })
+    await apiFetch(`/api/admin/imports/${id}/analyze`, { method: 'POST' })
     await loadImports()
   } catch (err) {
     error.value = err.message || '分析失败'
@@ -366,14 +355,10 @@ async function applyImport(item) {
   busy.value = `${item.id}apply`
   error.value = ''
   try {
-    const response = await fetch(`/api/admin/imports/${item.id}/apply`, {
+    await apiFetch(`/api/admin/imports/${item.id}/apply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ replace: true }),
     })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`)
     await Promise.all([loadImports(), loadLaws(), loadOverview()])
   } catch (err) {
     error.value = err.message || '入库失败'

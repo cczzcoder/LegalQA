@@ -1,16 +1,8 @@
 import { defineStore } from 'pinia'
+import { apiFetch, apiFetchRaw } from '../http'
 
 function uid() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-async function jsonOrError(response) {
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const detail = data?.detail
-    throw new Error(typeof detail === 'string' ? detail : `HTTP ${response.status}`)
-  }
-  return data
 }
 
 export const useChatStore = defineStore('chat', {
@@ -33,18 +25,14 @@ export const useChatStore = defineStore('chat', {
 
   actions: {
     async loadSessions() {
-      const response = await fetch('/api/sessions', { credentials: 'include' })
-      this.sessions = await jsonOrError(response)
+      this.sessions = await apiFetch('/api/sessions')
     },
 
     async createSession() {
-      const response = await fetch('/api/sessions', {
+      const session = await apiFetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({}),
       })
-      const session = await jsonOrError(response)
       this.currentId = session.id
       this.messages = []
       this.citations = []
@@ -91,8 +79,7 @@ export const useChatStore = defineStore('chat', {
       this.stop()
       this.error = ''
       try {
-        const response = await fetch(`/api/sessions/${id}`, { credentials: 'include' })
-        const data = await jsonOrError(response)
+        const data = await apiFetch(`/api/sessions/${id}`)
         this.currentId = data.id
         this.messages = (data.messages || []).map((message) => ({
           ...message,
@@ -185,10 +172,8 @@ export const useChatStore = defineStore('chat', {
       this.controller = new AbortController()
 
       try {
-        const response = await fetch(`/api/sessions/${this.currentId}/chat`, {
+        const response = await apiFetchRaw(`/api/sessions/${this.currentId}/chat`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
           body: JSON.stringify({ query }),
           signal: this.controller.signal,
         })

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -31,6 +32,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "frontend" / "dist"
 
 COOKIE_SECURE = os.environ.get("LEGALMIND_COOKIE_SECURE", "0") == "1"
+CSRF_COOKIE_NAME = "lm_csrf"
+CSRF_HEADER_NAME = "X-CSRF-Token"
 CHAT_PER_MINUTE = int(os.environ.get("LEGALMIND_CHAT_PER_MINUTE", "10"))
 CHAT_PER_HOUR = int(os.environ.get("LEGALMIND_CHAT_PER_HOUR", "60"))
 LOGIN_PER_MINUTE = int(os.environ.get("LEGALMIND_LOGIN_PER_MINUTE", "8"))
@@ -95,6 +98,19 @@ def _set_cookie(response: Response, token: str) -> None:
     )
 
 
+def _set_csrf_cookie(response: Response, token: str) -> None:
+    # 不 httpOnly：双提交模式下前端要读它并放回 X-CSRF-Token 头。
+    response.set_cookie(
+        CSRF_COOKIE_NAME,
+        token,
+        max_age=TOKEN_TTL_SECONDS,
+        httponly=False,
+        samesite="lax",
+        secure=COOKIE_SECURE,
+        path="/",
+    )
+
+
 def current_user(request: Request) -> dict[str, Any]:
     token = request.cookies.get(COOKIE_NAME)
     user = request.app.state.db.user_by_token(token)
@@ -123,9 +139,52 @@ def create_app(
     app.state.evals = EvalStore(eval_dir)
     app.state.importer = importer or Importer()
 
+    @app.middleware("http")
+    async def csrf_guard(request: Request, call_next):
+        # Cookie 双提交：不安全方法必须带 X-CSRF-Token 且与 lm_csrf cookie 一致。
+        if request.url.path.startswith("/api/") and request.method in {
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+        }:
+            cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
+            header_token = request.headers.get(CSRF_HEADER_NAME, "")
+            if (
+                not cookie_token
+                or not header_token
+                or not secrets.compare_digest(cookie_token, header_token)
+            ):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF 校验失败，请刷新页面后重试"},
+                )
+        return await call_next(request)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+        )
+        # Element Plus 运行时注入 <style>，style-src 必须放开 unsafe-inline。
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; font-src 'self' data:; connect-src 'self'",
+        )
+        return response
+
     admin_username = os.environ.get("LEGALMIND_ADMIN_USERNAME", "").strip()
     if admin_username:
-        app.state.db.set_admin(admin_username)
+        promoted = app.state.db.set_admin(admin_username)
+        if promoted:
+            app.state.db.add_audit(
+                "admin_promote", username=admin_username, detail="环境变量提升为管理员"
+            )
 
     app.add_middleware(
         CORSMiddleware,
@@ -196,7 +255,12 @@ def create_app(
             status = 409 if "已存在" in str(exc) else 400
             raise HTTPException(status_code=status, detail=str(exc)) from exc
         _set_cookie(response, request.app.state.db.create_token(user["id"]))
-        return user
+        csrf_token = secrets.token_urlsafe(32)
+        _set_csrf_cookie(response, csrf_token)
+        request.app.state.db.add_audit(
+            "register", user["id"], user["username"], "注册成功"
+        )
+        return {**user, "csrf_token": csrf_token}
 
     @app.post("/api/auth/login")
     def login(
@@ -211,19 +275,41 @@ def create_app(
         )
         user = request.app.state.db.verify_user(payload.username, payload.password)
         if user is None:
+            request.app.state.db.add_audit(
+                "login_failed", username=payload.username.strip(), detail="用户名或密码错误"
+            )
             raise HTTPException(status_code=401, detail="用户名或密码错误")
         _set_cookie(response, request.app.state.db.create_token(user["id"]))
-        return user
+        csrf_token = secrets.token_urlsafe(32)
+        _set_csrf_cookie(response, csrf_token)
+        request.app.state.db.add_audit(
+            "login", user["id"], user["username"], "登录成功"
+        )
+        return {**user, "csrf_token": csrf_token}
 
     @app.post("/api/auth/logout")
     def logout(request: Request, response: Response) -> dict[str, bool]:
-        request.app.state.db.delete_token(request.cookies.get(COOKIE_NAME))
+        db = request.app.state.db
+        user = db.user_by_token(request.cookies.get(COOKIE_NAME))
+        if user:
+            db.add_audit("logout", user["id"], user["username"], "退出登录")
+        db.delete_token(request.cookies.get(COOKIE_NAME))
         response.delete_cookie(COOKIE_NAME, path="/")
         return {"ok": True}
 
     @app.get("/api/auth/me")
-    def me(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-        return user
+    def me(request: Request):
+        token = request.cookies.get(COOKIE_NAME)
+        user = request.app.state.db.user_by_token(token)
+        # 无论登录与否都确保 CSRF cookie 存在：登录表单提交、已登录用户的
+        # 首次访问（旧会话 cookie 没有配对 token）都依赖它。
+        response = JSONResponse(
+            status_code=200 if user else 401,
+            content=user or {"detail": "请先登录"},
+        )
+        if not request.cookies.get(CSRF_COOKIE_NAME):
+            _set_csrf_cookie(response, secrets.token_urlsafe(32))
+        return response
 
     # -- 会话 -----------------------------------------------------------
     @app.get("/api/sessions")
@@ -405,7 +491,16 @@ def create_app(
             "index": importer.index_lag(),
             "corpus": corpus,
             "version_warnings": warnings,
+            "recent_audit": db.list_audit(10),
         }
+
+    @app.get("/api/admin/audit")
+    def list_audit_admin(
+        request: Request,
+        limit: int = 100,
+        user: dict[str, Any] = Depends(current_admin),
+    ) -> dict[str, Any]:
+        return {"items": request.app.state.db.list_audit(limit)}
 
     @app.get("/api/admin/feedback")
     def list_feedback_admin(
@@ -430,6 +525,12 @@ def create_app(
             raise HTTPException(status_code=400, detail="状态不合法")
         if not request.app.state.db.update_feedback_status(feedback_id, payload.status):
             raise HTTPException(status_code=404, detail="反馈不存在")
+        request.app.state.db.add_audit(
+            "feedback_status",
+            user["id"],
+            user["username"],
+            f"反馈 {feedback_id} → {payload.status}",
+        )
         return {"ok": True}
 
     @app.get("/api/admin/imports")
@@ -460,7 +561,14 @@ def create_app(
             raise HTTPException(status_code=400, detail="文件为空")
         importer: Importer = request.app.state.importer
         import_id, stored = importer.save_upload(filename, content)
-        return request.app.state.db.create_import(filename, str(stored), len(content))
+        record = request.app.state.db.create_import(filename, str(stored), len(content))
+        request.app.state.db.add_audit(
+            "import_upload",
+            user["id"],
+            user["username"],
+            f"{filename}（{len(content)} 字节）→ {import_id}",
+        )
+        return record
 
     @app.delete("/api/admin/imports/{import_id}")
     def delete_import(
@@ -476,6 +584,12 @@ def create_app(
             raise HTTPException(status_code=400, detail="已入库的导入不能删除")
         request.app.state.importer.remove_upload(record["stored_path"])
         db.delete_import(import_id)
+        db.add_audit(
+            "import_delete",
+            user["id"],
+            user["username"],
+            f"{record['filename']}（{record['status']}）",
+        )
         return {"ok": True}
 
     @app.post("/api/admin/imports/{import_id}/analyze")
@@ -500,6 +614,12 @@ def create_app(
             article_count=report.get("article_count", 0),
             report_json=json.dumps(report, ensure_ascii=False),
             error=report.get("error", ""),
+        )
+        db.add_audit(
+            "import_analyze",
+            user["id"],
+            user["username"],
+            f"{record['filename']} → {report.get('suggestion', report.get('error', ''))}",
         )
         return report
 
@@ -531,6 +651,13 @@ def create_app(
             )
             request.app.state.catalog.reload()
             reload_service()
+            db.add_audit(
+                "import_apply",
+                user["id"],
+                user["username"],
+                f"{record['filename']}：+{result.get('added', 0)} 条"
+                f"（替换 {result.get('removed', 0)}）· {result.get('index_status', '')}",
+            )
         return result
 
     if DIST.exists():

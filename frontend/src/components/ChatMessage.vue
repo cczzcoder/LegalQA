@@ -74,6 +74,7 @@
 import { computed, ref } from 'vue'
 import { renderMarkdown } from '../markdown'
 import { useChatStore } from '../stores/chat'
+import { apiFetch } from '../http'
 
 const props = defineProps({ message: { type: Object, required: true } })
 defineEmits(['citation-click'])
@@ -92,10 +93,8 @@ async function submitFeedback() {
   feedbackState.value = 'sending'
   feedbackError.value = ''
   try {
-    const response = await fetch('/api/feedback', {
+    await apiFetch('/api/feedback', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({
         session_id: store.currentId,
         message_id: props.message.id,
@@ -103,10 +102,6 @@ async function submitFeedback() {
         comment: feedbackComment.value,
       }),
     })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      throw new Error(data.detail || `HTTP ${response.status}`)
-    }
     feedbackState.value = 'done'
   } catch (error) {
     feedbackState.value = 'idle'

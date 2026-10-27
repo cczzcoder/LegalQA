@@ -167,6 +167,14 @@ class Database:
                     created_at TEXT NOT NULL,
                     applied_at TEXT NOT NULL DEFAULT ''
                 );
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL DEFAULT '',
+                    username TEXT NOT NULL DEFAULT '',
+                    action TEXT NOT NULL,
+                    detail TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS idx_sessions_user
                     ON chat_sessions(user_id, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_messages_session
@@ -176,6 +184,8 @@ class Database:
                     ON feedback(status, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_imports_status
                     ON imports(status, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_audit_created
+                    ON audit_log(created_at DESC);
                 """
             )
             # 旧库迁移：role 列是后加的，CREATE TABLE IF NOT EXISTS 不会补列。
@@ -221,13 +231,18 @@ class Database:
         return {"id": row["id"], "username": row["username"], "role": row["role"]}
 
     def set_admin(self, username: str) -> bool:
-        """把指定用户提升为管理员。管理员不能开放注册产生，只能显式指定。"""
+        """把指定用户提升为管理员；返回是否真正发生了提升（已是 admin 返回 False）。"""
         with self._conn() as conn:
-            cur = conn.execute(
+            row = conn.execute(
+                "SELECT role FROM users WHERE username = ?", (username.strip(),)
+            ).fetchone()
+            if row is None or row["role"] == "admin":
+                return False
+            conn.execute(
                 "UPDATE users SET role = 'admin' WHERE username = ?",
                 (username.strip(),),
             )
-            return cur.rowcount > 0
+            return True
 
     def create_token(self, user_id: str) -> str:
         token = secrets.token_urlsafe(32)
@@ -584,3 +599,26 @@ class Database:
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM imports WHERE id = ?", (import_id,))
             return cur.rowcount > 0
+
+    # -- 审计日志 --------------------------------------------------------
+    def add_audit(
+        self,
+        action: str,
+        user_id: str = "",
+        username: str = "",
+        detail: str = "",
+    ) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO audit_log(user_id, username, action, detail, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, username, action, detail[:500], _now_iso()),
+            )
+
+    def list_audit(self, limit: int = 100) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?",
+                (min(max(limit, 1), 500),),
+            ).fetchall()
+        return [dict(row) for row in rows]
