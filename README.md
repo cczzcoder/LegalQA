@@ -12,11 +12,11 @@
 
 | 指标 | 结果 | 数据 |
 |---|---|---|
-| 单元/属性测试 | **484 passed** | `pytest tests/ -q` |
+| 单元/属性测试 | **491 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
-| 100 条合成端到端 | **89/100** | `data/eval/qwen37_fact_100.json` |
+| 100 条合成端到端 | **88/100**（89 基线噪声带内，±2~5pt） | `data/eval/qwen37_scrub2_100.json` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
-| 引用可溯源 | 97%→98%（裸引修复后；剩 2 条真编造） | 见上 |
+| 引用可溯源 | 裸引修复 + 编造引用剥离后，本轮 100 集无幻觉条号 100% | 见上 |
 | 免责声明 | 100% | 见上 |
 | Web 前端 | FastAPI SSE + Vue 3（登录/会话落库/限流/引用侧栏/法条库/评测看板/管理端） | `frontend/`、`legalqa/api.py` |
 
@@ -56,7 +56,7 @@ START → InputGuard → ContextCompress → Agent ⇄ ToolNode → OutputGuard 
 cp .env.example .env
 
 # 3) 测试
-./.venv/Scripts/python.exe -m pytest tests/ -q          # 484 passed
+./.venv/Scripts/python.exe -m pytest tests/ -q          # 491 passed
 
 # 4) 接入自检（LLM 连通性 / 工具调用 / embedding / 索引）
 ./.venv/Scripts/python.exe -m legalqa.cli --check
@@ -165,7 +165,7 @@ docker compose up -d --build    # 读取 .env（可用 .env.production.example �
 
 ## 已知限制
 
-- 100 条剩余 11 条失败：2 条模型显式编造条号（79/66）、2 条检索到没引、4 条模型工具 query 漏事实、2 条近邻排序、1 条语义 gap。
+- 100 条剩余失败集中在检索/生成侧（未引用期望法条、个别过度拒答/过短），单轮波动 84~89 属噪声带；模型显式编造的条号已由输出护栏从正文剥离并提示。
 - 合成金标是弱标签；34 条手工集样本小。
 - Web 认证是 MVP：开放注册，没有邮箱验证/找回密码/多租户；限流在进程内，多 worker 需换 Redis。
 - 法条库读 `data/index/qwen37/docs.json`（索引缺失时回落到 `data/corpus/all.jsonl`）；评测看板读 `data/eval/*.json`，两者都不调用模型。

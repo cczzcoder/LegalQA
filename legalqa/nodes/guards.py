@@ -13,12 +13,13 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Sequence
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from legalqa import config
-from legalqa.pure.retrieval import extract_citations, resolve_law, same_law
+from legalqa.pure.retrieval import extract_citations, int_to_cn, resolve_law, same_law
 from legalqa.pure.window import last_human
 from legalqa.state import LegalState
 
@@ -225,6 +226,35 @@ def _looks_like_law(name: str | None) -> bool:
     )
 
 
+def _scrub_fabricated(text: str, fabricated: Sequence[tuple[str, int]]) -> str:
+    """把核验为不存在的引用从回答正文剥离。
+
+    只删引用标注本身（《法》第X条、该法/同解释第X条及其后的括号说明），
+    不动正文论述；剥离后残留的破折号顺手清掉。
+    """
+    for law, number in fabricated:
+        cn = int_to_cn(number)
+        names = sorted({law, law.replace("中华人民共和国", "")}, key=len, reverse=True)
+        for name in names:
+            if not name:
+                continue
+            pattern = re.compile(
+                rf"(?:——|—)?《?{re.escape(name)}》?第\s*{cn}\s*条"
+                rf"(?:（[^）]{{0,80}}）)?"
+            )
+            text = pattern.sub("", text)
+        # 承前省略法名的裸引：「依据同解释第六十六条（注：……）」
+        text = re.sub(
+            rf"(?:该法|本法|同解释|上述解释|前述解释)\s*第\s*{cn}\s*条"
+            rf"(?:（[^）]{{0,80}}）)?",
+            "",
+            text,
+        )
+    text = re.sub(r"——(?=[。；！？\s]|$)", "", text)
+    text = re.sub(r"（\s*）", "", text)
+    return text
+
+
 def _merge_docs(
     docs: Sequence[dict[str, Any]], extra: Sequence[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -351,6 +381,9 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
     external: set[str] = set()
     repealed: set[str] = set()
     ambiguous: set[int] = set()
+    # 编造引用：(法名, 条号) 在法条库里查不到。核实后从回答正文中剥离，
+    # 只留提示——引用不存在的条文比不引更危险。
+    fabricated: list[tuple[str, int]] = []
     # 本回答内已解析过的条号 → 法律名。模型通常先写「《劳动合同法》第四十六条」，
     # 后文直接写「第46条」；没有这张表，后一次会因为条号跨法重复被判成「不存在」——
     # 刚回捞成功的条文转头被指控编造，这是最不能接受的一类误判。
@@ -403,6 +436,8 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
 
             doc = index.by_article(number, known_law) if index is not None else None
 
+            known_last: str | None = None
+
             # ④ 裸条号：沿用同段最近一个显式法律名。
             # 模型常写「《语言法》第十一条……该法第二条」；`extract_citations`
             # 因跨句返回 law=None，直接按条号全局查会因歧义漏掉，或把
@@ -439,6 +474,9 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
                 # 没有索引（单测）时保持旧行为：不在本批就是未溯源
                 if index is None and law and allowed_laws and not cited_law_in_batch:
                     external.add(f"《{law}》第{number}条")
+                elif known_law is not None or known_last is not None:
+                    # 法名可确定、条号在该法里查不到 → 编造，剥离
+                    fabricated.append((known_law or known_last, number))
                 else:
                     unverified.add(number)
                 continue
@@ -451,8 +489,16 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
                 label = doc.get("article_label") or f"第{number}条"
                 repealed.add(f"《{doc.get('law_name', '')}》{label}")
 
-    if unverified or external or repealed or ambiguous:
+    if fabricated:
+        text = _scrub_fabricated(text, fabricated)
+
+    if unverified or external or repealed or ambiguous or fabricated:
         parts = []
+        if fabricated:
+            parts.append(
+                "以下条号在法条库中不存在，已从回答中移除："
+                + "、".join(f"《{law}》第{number}条" for law, number in fabricated)
+            )
         if unverified:
             # 措辞必须与「是否真的查过」一致：有索引是「查不到，可能不存在」，
             # 没索引只是「不在这一批里」。说错话比不说更糟。

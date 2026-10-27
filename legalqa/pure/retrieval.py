@@ -18,6 +18,7 @@ from legalqa import config
 
 __all__ = [
     "cn_to_int",
+    "int_to_cn",
     "extract_article_no",
     "extract_all_article_nos",
     "extract_citations",
@@ -76,6 +77,35 @@ def cn_to_int(text: str) -> int | None:
     return total + section + number
 
 
+def int_to_cn(number: int) -> str:
+    """整数转中文数字（条号用，1~9999）。超范围或非法输入回退十进制字符串。
+
+    cn_to_int 的反向：引用剥离时需要把「79」写成「第七十九条」去匹配正文。
+    """
+    if not isinstance(number, int) or not 0 <= number < 10000:
+        return str(number)
+    if number == 0:
+        return "零"
+    digits = [int(ch) for ch in str(number)]
+    parts: list[str] = []
+    zero_pending = False
+    for index, digit in enumerate(digits):
+        pos = len(digits) - index - 1
+        if digit == 0:
+            zero_pending = True
+            continue
+        if zero_pending and parts:
+            parts.append("零")
+        zero_pending = False
+        # 「十五」不是「一十五」；「一百一十」里的「一十」要保留。
+        if pos == 1 and digit == 1 and not parts:
+            parts.append("十")
+        else:
+            parts.append("零一二三四五六七八九"[digit])
+            parts.append(("", "十", "百", "千")[pos])
+    return "".join(parts)
+
+
 def extract_article_no(text: str) -> int | None:
     """从文本里抽条号。多处出现时取第一处。
 
@@ -112,6 +142,12 @@ _COMMON_PREFIX = "中华人民共和国"
 # 法名比较前统一去掉的包装字符：模型写司法解释时常加〈〉，语料里没有。
 _LAW_NOISE = str.maketrans("", "", "《》〈〉（）()【】[] \t\u3000")
 _SENTENCE_END = "。"
+# 法名只归给同一句里其后「紧挨着枚举」的条号（第十四条、第十七条和第三十七条）。
+# 中间隔了大段正文再出现另一个条号时不再归因——实测 071：一句里先写
+# 《实施条例》第五十二条，隔了 15 个字再写「与第九百二十七条一致」，
+# 旧实现把 927 也归到实施条例名下，误报「实施条例第 927 条不存在」。
+# 放弃归因的裸条号由 OutputGuard 的「本批材料」兜底解析。
+_ENUM_GAP = 6
 
 
 def normalize_law(name: str | None) -> str:
@@ -181,13 +217,29 @@ def extract_citations(
         # 法律名与条号之间不能跨句：早期实现把「《通知》……。依据《工伤保险条例》
         # 第十四条」的 14 归到了《通知》名下，溯源时误报「通知第 14 条未检索到」。
         start = text.rfind(_SENTENCE_END, 0, pos) + 1
+        sentence_articles = [
+            (m.start(), m.end()) for m in _ARTICLE_INNER.finditer(text, start)
+        ]
+
+        def _blocked_by_intervening_article(begin: int) -> bool:
+            return any(
+                begin <= p_start < pos and pos - p_end > _ENUM_GAP
+                for p_start, p_end in sentence_articles
+            )
+
         mentions: list[tuple[int, str | None]] = []
 
         for mark_start, mark_end, name in marks:
-            if start <= mark_start < pos and mark_end <= pos:
+            if (
+                start <= mark_start < pos
+                and mark_end <= pos
+                and not _blocked_by_intervening_article(mark_end)
+            ):
                 mentions.append((mark_end, name))
         for rel_end, candidate in _bare_law_mentions(text[start:pos], law_names):
-            mentions.append((start + rel_end, candidate))
+            end = start + rel_end
+            if not _blocked_by_intervening_article(end):
+                mentions.append((end, candidate))
 
         explicit = sorted(mentions, key=lambda item: (item[0], len(item[1] or "")))
         last_law = explicit[-1][1] if explicit else None

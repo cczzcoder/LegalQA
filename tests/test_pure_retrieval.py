@@ -344,3 +344,45 @@ def test_extract_citations_keeps_outer_interpretation_name() -> None:
     assert number == 10
     assert same_law(law, laws[1])
     assert not same_law(law, laws[0])
+
+
+def test_int_to_cn_roundtrip() -> None:
+    from legalqa.pure.retrieval import cn_to_int, int_to_cn
+
+    for number in (0, 1, 2, 10, 12, 20, 66, 79, 87, 100, 102, 110, 1165, 1000, 1500):
+        cn = int_to_cn(number)
+        assert cn_to_int(cn) == number, f"{number} -> {cn}"
+
+
+def test_int_to_cn_out_of_range_falls_back() -> None:
+    from legalqa.pure.retrieval import int_to_cn
+
+    assert int_to_cn(10000) == "10000"
+    assert int_to_cn(-3) == "-3"
+
+
+def test_extract_citations_does_not_attribute_distant_second_number() -> None:
+    """同句里第二个条号离句首《》法名太远时，不归给它（承前省略由护栏兜底）。
+
+    实测 071：先引《生态环境法典》第 927 条，后句写「与第九百二十七条一致」，
+    旧实现把 927 归到本句开头的《矿产资源法实施条例》名下，误报条号不存在。
+    """
+    from legalqa.pure.retrieval import extract_citations
+
+    text = (
+        "依据《中华人民共和国矿产资源法实施条例》第五十二条虽针对矿区修复，"
+        "但组织模式与第九百二十七条所确立的跨部门协同验收原则一致。"
+    )
+    pairs = extract_citations(
+        text, ["中华人民共和国矿产资源法实施条例", "中华人民共和国生态环境法典"]
+    )
+    assert pairs[0] == ("中华人民共和国矿产资源法实施条例", 52)
+    assert pairs[1] == (None, 927)
+
+
+def test_extract_citations_still_attributes_nearby_bare_number() -> None:
+    from legalqa.pure.retrieval import extract_citations
+
+    text = "依照劳动合同法第八十七条的规定，用人单位应当支付赔偿金。"
+    pairs = extract_citations(text, ["中华人民共和国劳动合同法"])
+    assert pairs == [("劳动合同法", 87)]

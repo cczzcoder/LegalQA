@@ -449,14 +449,15 @@ def test_backfill_flags_repealed_article() -> None:
 
 
 def test_backfill_flags_fabricated_article() -> None:
-    """法条库里没有这个条号 → 编造，必须警示且不能附任何原文。"""
+    """法条库里没有这个条号 → 编造，从正文剥离并提示，且不能附任何原文。"""
     index = _corpus_index()
     answer = AIMessage(id="a1", content=f"依据《劳动合同法》第九十九条。{DISCLAIMER}")
     out = make_output_guard_node(index)(LegalState(messages=[answer]))
 
     assert out["output_reason"] == "unverified_citation"
     content = out["messages"][0].content
-    assert "查不到" in content
+    assert "第九十九条" not in content
+    assert "已从回答中移除" in content
     assert "【补充核对】" not in content
 
 
@@ -693,3 +694,47 @@ def test_traceability_checks_law_and_number_as_a_pair() -> None:
         d.get("law_name") == "乙法" and d.get("article_no") == 38
         for d in out.get("retrieved_docs", [])
     ), "乙法第38条没被回捞，说明配对判断仍失效"
+
+
+# ---------------------------------------------------------------------------
+# 编造引用剥离
+# ---------------------------------------------------------------------------
+def test_guard_scrubs_fabricated_citation() -> None:
+    """引用了法条库里不存在的条号 → 从正文剥离并提示，合法引用保留。"""
+    index = _corpus_index()
+    answer = AIMessage(
+        id="a1",
+        content=(
+            "结论：可以主张经济补偿。\n\n"
+            "依据《中华人民共和国劳动合同法》第四十六条（2012-12-28 版本）……\n"
+            "劳动争议仲裁是前置程序，无需先调解——《中华人民共和国劳动合同法》"
+            "第七十九条（2012-12-28 版本）。"
+            f"{DISCLAIMER}"
+        ),
+    )
+    out = make_output_guard_node(index)(LegalState(messages=[answer]))
+
+    content = out["messages"][0].content
+    assert "第七十九条" not in content
+    assert "已从回答中移除" in content
+    assert "第四十六条" in content
+    assert "无需先调解。" in content.replace("——", "") or "无需先调解" in content
+
+
+def test_guard_scrubs_bare_fabricated_citation() -> None:
+    """「依据同解释第六十六条（注：……）」这种承前省略的裸引同样剥离。"""
+    index = _corpus_index()
+    answer = AIMessage(
+        id="a1",
+        content=(
+            "依据《中华人民共和国劳动合同法》第四十六条，单位应支付补偿。\n"
+            "同时依据同解释第八十条（注：原文为第四十七条），可另行主张。"
+            f"{DISCLAIMER}"
+        ),
+    )
+    out = make_output_guard_node(index)(LegalState(messages=[answer]))
+
+    content = out["messages"][0].content
+    assert "第八十条" not in content
+    assert "已从回答中移除" in content
+    assert "第四十六条" in content
