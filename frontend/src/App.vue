@@ -15,6 +15,7 @@
       @new="onSidebarNew"
       @example="onSidebarExample"
       @open="onSidebarOpen"
+      @delete="onSidebarDelete"
       @logout="onLogout"
       @close="sidebarOpen = false"
     />
@@ -225,6 +226,11 @@ function onSidebarExample(question) {
 function onSidebarOpen(id) {
   sidebarOpen.value = false
   store.openSession(id)
+}
+
+function onSidebarDelete(id) {
+  sidebarOpen.value = false
+  store.deleteSession(id)
 }
 
 async function onLogout() {

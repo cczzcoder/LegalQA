@@ -29,16 +29,22 @@
 
     <section v-if="sessions.length" class="side-section sessions">
       <h4>最近对话</h4>
-      <button
+      <div
         v-for="session in sessions"
         :key="session.id"
         class="session-item"
         :class="{ active: session.id === activeId }"
-        @click="$emit('open', session.id)"
       >
-        <span class="session-title">{{ session.title }}</span>
-        <small>{{ formatDate(session.updated_at) }}</small>
-      </button>
+        <button class="session-open" @click="$emit('open', session.id)">
+          <span class="session-title">{{ session.title }}</span>
+          <small>{{ formatDate(session.updated_at) }}</small>
+        </button>
+        <button
+          class="session-delete"
+          :aria-label="`删除会话 ${session.title}`"
+          @click="$emit('delete', session.id)"
+        >×</button>
+      </div>
     </section>
 
     <div v-if="username" class="side-user">
@@ -62,7 +68,7 @@ defineProps({
   sessions: { type: Array, default: () => [] },
   activeId: { type: String, default: '' },
 })
-defineEmits(['new', 'example', 'open', 'close', 'logout'])
+defineEmits(['new', 'example', 'open', 'delete', 'close', 'logout'])
 
 function formatDate(timestamp) {
   if (!timestamp) return ''

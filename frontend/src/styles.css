@@ -180,12 +180,28 @@ button {
 .session-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
-  padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 8px;
+  background: transparent;
+}
+
+.session-item:hover,
+.session-item.active {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.session-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 0 8px 10px;
+  border: 0;
   color: #c5d4e2;
   font-size: 12px;
   text-align: left;
@@ -193,10 +209,23 @@ button {
   cursor: pointer;
 }
 
-.session-item:hover,
-.session-item.active {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.08);
+.session-delete {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 6px;
+  color: #7f96ab;
+  font-size: 15px;
+  line-height: 1;
+  background: transparent;
+  cursor: pointer;
+}
+
+.session-delete:hover {
+  color: #ffd9d9;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .session-title {

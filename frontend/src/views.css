@@ -1278,3 +1278,55 @@
     font-size: 11px;
   }
 }
+
+/* ── 管理端：最近操作审计 ─────────────────────────────── */
+.audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #52697e;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.audit-action {
+  flex: none;
+  min-width: 56px;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.audit-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.audit-time {
+  flex: none;
+  color: #9aa9b7;
+  font-size: 10px;
+  font-style: normal;
+}
+
+@media (max-width: 640px) {
+  .audit-item {
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+
+  .audit-time {
+    width: 100%;
+  }
+}

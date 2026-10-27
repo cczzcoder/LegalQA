@@ -75,6 +75,21 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
+    async deleteSession(id) {
+      this.stop()
+      this.error = ''
+      try {
+        await apiFetch(`/api/sessions/${id}`, { method: 'DELETE' })
+        await this.loadSessions()
+        if (this.currentId === id) {
+          if (this.sessions.length) await this.openSession(this.sessions[0].id)
+          else await this.createSession()
+        }
+      } catch (error) {
+        this.error = error.message || '删除会话失败'
+      }
+    },
+
     async openSession(id) {
       this.stop()
       this.error = ''

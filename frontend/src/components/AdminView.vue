@@ -38,6 +38,16 @@
           </div>
         </div>
 
+        <h3>最近操作</h3>
+        <div v-if="!overview.recent_audit?.length" class="admin-empty">暂无审计记录。</div>
+        <div v-else class="audit-list">
+          <div v-for="item in overview.recent_audit" :key="item.id" class="audit-item">
+            <span class="audit-action">{{ actionLabel(item.action) }}</span>
+            <span class="audit-detail">{{ item.username || '-' }} {{ item.detail }}</span>
+            <em class="audit-time">{{ fmtTime(item.created_at) }}</em>
+          </div>
+        </div>
+
         <h3>版本提醒</h3>
         <div v-if="!overview.version_warnings.length" class="admin-empty">
           没有需要关注的版本问题。
@@ -380,6 +390,14 @@ function statusLabel(status) {
   return (
     { uploaded: '待分析', analyzed: '待确认', failed: '解析失败', applied: '已入库',
       open: '待处理', done: '已处理', ignored: '已忽略' }[status] || status
+  )
+}
+
+function actionLabel(action) {
+  return (
+    { login: '登录', login_failed: '登录失败', register: '注册', logout: '退出',
+      admin_promote: '提升管理员', feedback_status: '反馈处理', import_upload: '上传文献',
+      import_analyze: '文献分析', import_apply: '文献入库', import_delete: '删除导入' }[action] || action
   )
 }
 
