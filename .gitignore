@@ -28,3 +28,6 @@ Thumbs.db
 .DS_Store
 data/imports/
 data/backups/
+
+# 本地 AI 交接笔记（含本机路径与敏感片段，不发布）
+.workbuddy-ai/
