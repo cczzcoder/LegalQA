@@ -15,6 +15,7 @@
 | 单元/属性测试 | **495 passed** | `pytest tests/ -q` |
 | 34 条手工回归集 | **34/34（100%）** | `data/eval/qwen37_barefix_34.json` |
 | 100 条合成端到端 | **90/100**（历史最佳；单轮波动 84~90） | `data/eval/qwen37_partial_100.json` |
+| 多轮对话（8 组 20 轮） | **20/20** | `scripts/run_multiturn_eval.py`、`data/eval/multiturn.jsonl` |
 | 120 条检索集 R@1 / R@6 / MRR | **49.2% / 77.5% / 0.607** | `run_retrieval_eval.py` |
 | 引用可溯源 | 裸引修复 + 编造引用剥离后，本轮 100 集无幻觉条号 100% | 见上 |
 | 免责声明 | 100% | 见上 |
@@ -71,6 +72,7 @@ cp .env.example .env
     --cases data/eval/synth100.jsonl --workers 4 --json data/eval/run_100.json
 ./.venv/Scripts/python.exe scripts/run_retrieval_eval.py \
     --cases data/eval/synthetic.jsonl --index data/index/all
+./.venv/Scripts/python.exe scripts/run_multiturn_eval.py   # 多轮/追问/指代（8 组 20 轮）
 ```
 
 索引与 `.env` 不入库：`data/index/` 可用 `scripts/ingest_folder.py` 重建；`.env` 见 `.env.example`。
@@ -203,4 +205,4 @@ LEGALQA_TEST_REDIS_URL=redis://127.0.0.1:6380/0 \
 
 1. 部署脚本与反向代理示例；多租户（如需）。
 2. 前端增强：自动更新二期（官方库联网检查提醒）。
-3. 剩余 11 条逐案修复；评测集扩到人工标注；补多轮/中断场景。
+3. 剩余 10 条逐案修复；评测集扩到人工标注。

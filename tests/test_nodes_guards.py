@@ -738,3 +738,25 @@ def test_guard_scrubs_bare_fabricated_citation() -> None:
     assert "第八十条" not in content
     assert "已从回答中移除" in content
     assert "第四十六条" in content
+
+
+def test_guard_disambiguates_shorthand_law_within_batch() -> None:
+    """《实施条例》在语料里有多部，但本批材料只有一部时按批内唯一消歧。"""
+    from legalqa.corpus.index import VectorIndex
+
+    docs = [
+        {"id": "sl-0008", "law_name": "中华人民共和国劳动合同法实施条例",
+         "doc_type": "行政法规", "article_no": 8, "article_label": "第八条",
+         "text": "劳动合同法实施条例第八条内容。", "is_valid": True,
+         "effective_date": "", "version_date": "2008-09-18", "source": "x.docx"},
+    ]
+    index = VectorIndex.build(docs, _FakeEmbedder())
+    # 批内是同一部条例的另一条：简称先靠批内唯一消歧，再回查法条库补原文
+    batch = [{"id": "sl-0009", "law_name": "中华人民共和国劳动合同法实施条例", "article_no": 9}]
+    answer = AIMessage(id="a1", content=f"依据《实施条例》第八条。{DISCLAIMER}")
+    out = make_output_guard_node(index)(LegalState(messages=[answer], retrieved_docs=batch))
+
+    content = out["messages"][0].content
+    assert "无法校验" not in content
+    assert "【补充核对】" in content
+    assert "实施条例" in content

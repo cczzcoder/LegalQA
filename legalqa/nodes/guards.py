@@ -428,6 +428,13 @@ def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
                 # 「…婚姻家庭编的解释（一）」解析成「民法典」。
                 known_law = resolve_law(law, index.law_names)
                 law_in_corpus = known_law is not None
+                # 全称歧义（如「《实施条例》」在语料里有三部）时用本批材料
+                # 兜底消歧：只命中一个候选就归给它；两个以上保持「无法校验」。
+                if not law_in_corpus:
+                    candidates = [name for name in allowed_laws if same_law(law, name)]
+                    if len(candidates) == 1:
+                        known_law = candidates[0]
+                        law_in_corpus = True
 
             # ③ 语料库里根本没有这部法律（如《刑法》）→ 超出知识库，不算未溯源
             if index is not None and law and not law_in_corpus:
