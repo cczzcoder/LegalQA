@@ -1,0 +1,11 @@
+# LegalQA 反向代理示例（Caddy，自动 HTTPS）。
+# 使用：把域名改成你的，`caddy run --config deploy/Caddyfile`。
+
+legalqa.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000
+
+    # 法条库/评测看板是只读大 JSON，允许代理缓存减轻后端压力
+    @static-api path /api/laws /api/laws/* /api/eval/runs
+    header @static-api Cache-Control "public, max-age=300"
+}

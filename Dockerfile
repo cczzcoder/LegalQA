@@ -32,4 +32,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"
 
-CMD ["uvicorn", "legalqa.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# 多 worker 需要 LEGALQA_DATABASE_URL + LEGALQA_REDIS_URL（见 .env.example）
+CMD ["sh", "-c", "uvicorn legalqa.api:app --host 0.0.0.0 --port 8000 --workers ${LEGALQA_WORKERS:-1}"]

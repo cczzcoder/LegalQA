@@ -179,6 +179,9 @@ LEGALQA_TEST_REDIS_URL=redis://127.0.0.1:6380/0 \
 ```
 
 - 生产要求：HTTPS 反向代理后置 `LEGALQA_COOKIE_SECURE=1`，并指定 `LEGALQA_ADMIN_USERNAME`
+- 一键部署：`bash scripts/deploy.sh`（首次生成 .env 模板并校验密钥占位，然后 compose 构建启动）
+- HTTPS 反向代理示例：`deploy/Caddyfile`（自动证书）与 `deploy/nginx-legalqa.conf`（certbot；含 SSE 关缓冲、上传 25MB 上限）
+- 多 worker：`LEGALQA_WORKERS=4`（必须已配 `LEGALQA_DATABASE_URL` + `LEGALQA_REDIS_URL`，否则限流计数不共享）
 
 ## 已知限制
 
