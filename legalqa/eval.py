@@ -27,6 +27,7 @@ from legalqa.pure.retrieval import extract_citations, resolve_law, same_law
 
 __all__ = [
     "CheckResult",
+    "CoverageResult",
     "check_disclaimer",
     "check_length",
     "check_traceability",
@@ -34,6 +35,7 @@ __all__ = [
     "check_refusal",
     "check_keywords",
     "check_expected_citation",
+    "check_coverage",
     "extract_answer",
     "strip_backfill_appendix",
 ]
@@ -59,6 +61,36 @@ class CheckResult:
 
 
 @dataclass
+class CoverageResult:
+    """多问/复杂问的覆盖度。
+
+    **刻意不并入 `CaseReport.passed`。** 覆盖度先用独立指标观察：
+    关键词规则会漏掉同义表达，直接算失败会让基线因为「换了个说法」
+    而虚假下降。等 30 条样本校准稳定后，再决定是否纳入通过判定。
+    """
+
+    total: int = 0
+    covered: int = 0
+    missing: list[str] = field(default_factory=list)
+
+    @property
+    def ratio(self) -> float:
+        return 1.0 if self.total == 0 else self.covered / self.total
+
+    @property
+    def passed(self) -> bool:
+        return self.covered == self.total
+
+    @property
+    def detail(self) -> str:
+        if self.total == 0:
+            return "未指定"
+        if self.passed:
+            return f"覆盖 {self.covered}/{self.total}"
+        return f"覆盖 {self.covered}/{self.total}；未覆盖：" + "、".join(self.missing)
+
+
+@dataclass
 class CaseReport:
     case_id: str
     query: str
@@ -77,6 +109,9 @@ class CaseReport:
     # 检索覆盖：引用是否落在**原始检索材料**里。不参与通过判定，
     # 只用来回答「检索层到底漏了多少」——这是和「引用是否可核验」不同的指标。
     retrieval_coverage: CheckResult | None = None
+    # 问题覆盖：用户一次提了多个子问题时，回答实际展开了几个。
+    # 同样不参与通过判定，先作为独立指标观察。
+    coverage: CoverageResult | None = None
 
     @property
     def passed(self) -> bool:
@@ -214,6 +249,38 @@ def check_keywords(text: str, keywords: Sequence[str]) -> CheckResult:
     if any(k in body for k in keywords):
         return CheckResult("关键要素", True)
     return CheckResult("关键要素", False, "均未提及: " + "、".join(keywords))
+
+
+def check_coverage(
+    text: str, sub_questions: Sequence[dict[str, Any]] | None
+) -> CoverageResult:
+    """每个子问题是否在回答里有对应内容。
+
+    `sub_questions` 每项形如 `{"text": "...", "must_mention": [...]}`。
+    `must_mention` 是**同义选项**，命中任意一个就算覆盖，避免把
+    「经济补偿」写成「补偿金」判成漏答。
+
+    只做保守判定：没给关键词的子问题按「已覆盖」处理——宁可漏报，
+    也不能因为评测规则没写全而冤枉一条完整回答。
+    """
+    items = [item for item in (sub_questions or []) if isinstance(item, dict)]
+    if not items:
+        return CoverageResult()
+
+    body = text or ""
+    missing: list[str] = []
+    covered = 0
+    for index, item in enumerate(items, start=1):
+        words = [
+            str(word).strip()
+            for word in (item.get("must_mention") or [])
+            if str(word).strip()
+        ]
+        if not words or any(word in body for word in words):
+            covered += 1
+            continue
+        missing.append(str(item.get("text") or f"第{index}个问题"))
+    return CoverageResult(total=len(items), covered=covered, missing=missing)
 
 
 def check_expected_citation(

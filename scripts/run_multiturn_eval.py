@@ -31,6 +31,7 @@ from langchain_core.messages import AIMessage, HumanMessage  # noqa: E402
 from legalqa.cli import build_embedder, build_llm, load_dotenv  # noqa: E402
 from legalqa.corpus.index import VectorIndex  # noqa: E402
 from legalqa.eval import (  # noqa: E402
+    check_coverage,
     check_disclaimer,
     check_expected_citation,
     check_hallucination,
@@ -59,6 +60,7 @@ def run_turn(app, index, history: list, turn: dict, turn_id: int) -> dict:
     answer = extract_answer(state.messages)
     checked = strip_backfill_appendix(answer)
     all_docs = list(state.retrieved_docs or [])
+    coverage = check_coverage(checked, turn.get("sub_questions"))
     checks = [
         check_disclaimer(checked),
         check_length(checked),
@@ -91,6 +93,17 @@ def run_turn(app, index, history: list, turn: dict, turn_id: int) -> dict:
             {"name": check.name, "passed": check.passed, "detail": check.detail}
             for check in checks
         ],
+        "coverage": (
+            {
+                "total": coverage.total,
+                "covered": coverage.covered,
+                "passed": coverage.passed,
+                "ratio": round(coverage.ratio, 4),
+                "missing": coverage.missing,
+            }
+            if turn.get("sub_questions")
+            else None
+        ),
     }
 
 
@@ -151,11 +164,15 @@ def main() -> int:
         marks = " ".join("✓" if turn["passed"] else "✗" for turn in report["turns"])
         print(f"  {report['id']:<10} [{marks}]  {report['latency_ms']/1000:>5.1f}s")
         for turn_id, turn in enumerate(report["turns"]):
+            coverage = turn.get("coverage")
             if not turn["passed"]:
                 print(f"      T{turn_id + 1} ✗ {turn['query'][:30]}")
                 for check in turn["checks"]:
                     if not check["passed"]:
                         print(f"          · {check['name']}: {check['detail']}")
+            if coverage and not coverage["passed"]:
+                print(f"      T{turn_id + 1} 覆盖 ✗ {coverage['covered']}/{coverage['total']} "
+                      f"未覆盖：{'、'.join(coverage['missing'])}")
 
     passed_turns = sum(1 for report in reports for turn in report["turns"] if turn["passed"])
     passed_cases = sum(1 for report in reports if report["passed"])
@@ -172,6 +189,20 @@ def main() -> int:
     for name, results in by_name.items():
         ok = sum(results)
         print(f"  {name:<12} {ok:>3}/{len(results):<3} {ok/len(results)*100:>6.1f}%")
+
+    coverage_items = [
+        turn["coverage"]
+        for report in reports
+        for turn in report["turns"]
+        if turn.get("coverage") and turn["coverage"]["total"]
+    ]
+    if coverage_items:
+        fully = sum(1 for item in coverage_items if item["passed"])
+        avg = sum(item["ratio"] for item in coverage_items) / len(coverage_items) * 100
+        print(
+            f"  {'问题覆盖':<12} {fully:>3}/{len(coverage_items):<3} "
+            f"{avg:>6.1f}%  （完全覆盖 / 平均覆盖率，不参与通过判定）"
+        )
 
     if args.json:
         payload = [

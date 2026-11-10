@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from legalqa.corpus.index import VectorIndex
 from legalqa.eval import (
     CheckResult,
+    check_coverage,
     check_disclaimer,
     check_hallucination,
     check_keywords,
@@ -327,3 +328,46 @@ def test_refusal_recognizes_out_of_scope_wording() -> None:
     )
     assert check_refusal(text, False).passed
     assert not check_refusal(text, True).passed
+
+
+# ---------------------------------------------------------------------------
+# 问题覆盖（多问 / 复杂问）
+# ---------------------------------------------------------------------------
+def test_coverage_all_present() -> None:
+    result = check_coverage(
+        "先讲经济补偿，再讲二倍工资。",
+        [
+            {"text": "经济补偿", "must_mention": ["经济补偿", "补偿金"]},
+            {"text": "双倍工资", "must_mention": ["二倍工资", "双倍工资"]},
+        ],
+    )
+    assert result.passed
+    assert result.covered == 2
+    assert result.ratio == 1.0
+
+
+def test_coverage_reports_missing_labels() -> None:
+    result = check_coverage(
+        "只说了经济补偿。",
+        [
+            {"text": "经济补偿", "must_mention": ["经济补偿"]},
+            {"text": "双倍工资", "must_mention": ["二倍工资", "双倍工资"]},
+        ],
+    )
+    assert not result.passed
+    assert result.covered == 1
+    assert result.ratio == 0.5
+    assert result.missing == ["双倍工资"]
+    assert "双倍工资" in result.detail
+
+
+def test_coverage_without_questions_passes() -> None:
+    result = check_coverage("任意内容", [])
+    assert result.passed
+    assert result.total == 0
+    assert result.detail == "未指定"
+
+
+def test_coverage_without_keywords_is_treated_as_covered() -> None:
+    """评测规则没给关键词时宁可漏报，也不能冤枉一条完整回答。"""
+    assert check_coverage("任意内容", [{"text": "无关键词"}]).passed

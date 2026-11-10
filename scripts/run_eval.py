@@ -35,6 +35,7 @@ from legalqa.cli import build_embedder, build_llm, load_dotenv  # noqa: E402
 from legalqa.corpus.index import VectorIndex  # noqa: E402
 from legalqa.eval import (  # noqa: E402
     CaseReport,
+    check_coverage,
     check_disclaimer,
     check_hallucination,
     check_keywords,
@@ -95,6 +96,11 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         retrieved=[_brief(d) for d in raw_docs],
         backfilled=[_brief(d) for d in backfilled_docs],
         retrieval_coverage=check_traceability(checked, raw_docs),
+        coverage=(
+            check_coverage(checked, case.get("sub_questions"))
+            if case.get("sub_questions")
+            else None
+        ),
     )
 
     report.checks.append(check_disclaimer(checked))
@@ -194,9 +200,10 @@ def main() -> int:
             report = evaluate_one(app, index, case)
             reports.append(report)
             mark = "✓" if report.passed else "✗"
+            extra = f" 覆盖{report.coverage.covered}/{report.coverage.total}" if report.coverage else ""
             print(
                 f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
-                f"轮次{report.iterations} {report.channel or '-':<6} {case['query'][:24]}"
+                f"轮次{report.iterations} {report.channel or '-':<6} {case['query'][:24]}{extra}"
             )
     else:
         # 用例之间没有共享状态，`app.invoke` 每次都是独立的一次图执行，
@@ -205,9 +212,10 @@ def main() -> int:
             reports = list(pool.map(lambda c: evaluate_one(app, index, c), cases))
         for report in reports:
             mark = "✓" if report.passed else "✗"
+            extra = f" 覆盖{report.coverage.covered}/{report.coverage.total}" if report.coverage else ""
             print(
                 f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
-                f"轮次{report.iterations} {report.channel or '-':<6} {report.query[:24]}"
+                f"轮次{report.iterations} {report.channel or '-':<6} {report.query[:24]}{extra}"
             )
 
     total_time = time.perf_counter() - started
@@ -241,6 +249,15 @@ def main() -> int:
         f"{covered/len(reports)*100:>6.1f}%  （仅原始检索，不参与通过判定）"
     )
 
+    coverage_reports = [r.coverage for r in reports if r.coverage and r.coverage.total]
+    if coverage_reports:
+        fully = sum(1 for item in coverage_reports if item.passed)
+        avg = sum(item.ratio for item in coverage_reports) / len(coverage_reports) * 100
+        print(
+            f"  {'问题覆盖':<12} {fully:>3}/{len(coverage_reports):<3} "
+            f"{avg:>6.1f}%  （完全覆盖 / 平均覆盖率，不参与通过判定）"
+        )
+
     failures = [r for r in reports if not r.passed]
     if failures:
         print(f"\n失败用例 {len(failures)} 条:")
@@ -268,6 +285,17 @@ def main() -> int:
                         "detail": r.retrieval_coverage.detail,
                     }
                     if r.retrieval_coverage
+                    else None
+                ),
+                "coverage": (
+                    {
+                        "total": r.coverage.total,
+                        "covered": r.coverage.covered,
+                        "passed": r.coverage.passed,
+                        "ratio": round(r.coverage.ratio, 4),
+                        "missing": r.coverage.missing,
+                    }
+                    if r.coverage
                     else None
                 ),
                 "checks": [
