@@ -85,6 +85,8 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     # 序号追问解析（Plan 节点）
     "resolved_query": "",
     "ordinal_reason": "",
+    "clarification_needed": False,
+    "clarification_candidates": [],
     # 检索
     "retrieved_docs": [],
     "rag_score": 0.0,

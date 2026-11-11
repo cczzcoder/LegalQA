@@ -23,7 +23,7 @@ from legalqa.pure.facets import (
     split_query,
 )
 from legalqa.pure.questions import (
-    resolve_elliptical_from_messages,
+    resolve_elliptical_context,
     resolve_ordinal_from_messages,
 )
 from legalqa.state import LegalState
@@ -74,16 +74,24 @@ def make_plan_node(llm: Any = None):
         resolved, reason = resolve_ordinal_from_messages(
             query, state.get("messages") or []
         )
+        clarification_needed = False
+        candidates: list[str] = []
         if not resolved:
-            resolved, elliptical_reason = resolve_elliptical_from_messages(
-                query, state.get("messages") or []
+            resolved, elliptical_reason, elliptical_candidates = (
+                resolve_elliptical_context(query, state.get("messages") or [])
             )
             if resolved:
                 reason = elliptical_reason
+            elif elliptical_reason == "ambiguous_elliptical":
+                reason = elliptical_reason
+                clarification_needed = True
+                candidates = elliptical_candidates
         facets, facet_source = _plan_facets(llm, query)
         return {
             "resolved_query": (resolved or "").strip(),
             "ordinal_reason": reason,
+            "clarification_needed": clarification_needed,
+            "clarification_candidates": candidates,
             "facets": facets,
             "facet_plan_source": facet_source,
             "trace": state.with_trace("plan", reason),

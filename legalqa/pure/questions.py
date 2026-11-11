@@ -24,6 +24,7 @@ __all__ = [
     "resolve_ordinal_from_messages",
     "is_elliptical_followup",
     "resolve_elliptical_from_messages",
+    "resolve_elliptical_context",
 ]
 
 _CN_NUM = r"[一二三四五六七八九十两0-9]{1,3}"
@@ -205,12 +206,16 @@ def is_elliptical_followup(query: str) -> bool:
     return any(token in text for token in config.DEICTIC_PRONOUNS) and len(text) <= 20
 
 
-def resolve_elliptical_from_messages(
+def resolve_elliptical_context(
     query: str, messages: Sequence[object]
-) -> tuple[str | None, str]:
-    """非编号追问：把上一轮用户问题作为确定性兜底指代。"""
+) -> tuple[str | None, str, list[str]]:
+    """非编号追问的指代上下文。
+
+    上一轮只有一个问题 → 直接用它兜底；
+    上一轮有多个问题 → 不猜，返回候选让上层发起澄清。
+    """
     if not is_elliptical_followup(query):
-        return None, "not_followup"
+        return None, "not_followup", []
     humans = [
         str(getattr(message, "content", "") or "")
         for message in messages
@@ -219,5 +224,18 @@ def resolve_elliptical_from_messages(
     if humans and humans[-1].strip() == str(query or "").strip():
         humans = humans[:-1]
     if not humans:
-        return None, "no_history"
-    return humans[-1], "elliptical_previous"
+        return None, "no_history", []
+
+    previous = humans[-1]
+    questions = extract_numbered_questions(previous)
+    if len(questions) >= 2:
+        return None, "ambiguous_elliptical", questions[:5]
+    return previous, "elliptical_previous", []
+
+
+def resolve_elliptical_from_messages(
+    query: str, messages: Sequence[object]
+) -> tuple[str | None, str]:
+    """非编号追问：返回可直接使用的上一轮问题；多候选时返回 None。"""
+    resolved, reason, _candidates = resolve_elliptical_context(query, messages)
+    return resolved, reason

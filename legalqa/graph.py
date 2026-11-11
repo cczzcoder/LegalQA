@@ -16,6 +16,7 @@ from langgraph.graph import END, START, StateGraph
 
 from legalqa import config
 from legalqa.nodes.agent import make_agent_node, make_tool_node
+from legalqa.nodes.clarify import clarify_node
 from legalqa.nodes.context import make_context_compress_node
 from legalqa.nodes.fallback import save_state_node, static_fallback_node
 from legalqa.nodes.guards import input_guard_node, make_output_guard_node
@@ -42,6 +43,11 @@ PIPELINE = "pipeline"
 def route_after_guard(state: LegalState) -> str:
     """入口分流。必须返回字面量，隐式 None 会触发 InvalidUpdateError。"""
     return "fallback" if state.get("guard_blocked") else "agent"
+
+
+def route_after_plan(state: LegalState) -> str:
+    """Plan 后分流：多候选指代先澄清，其余继续压缩/检索。"""
+    return "clarify" if state.get("clarification_needed") else "next"
 
 
 def route_after_agent(state: LegalState) -> str:
@@ -147,9 +153,11 @@ def build_graph(
     graph.add_node("output_guard", make_output_guard_node(index, llm, read_tool))
     graph.add_node("static_fallback", static_fallback_node)
     graph.add_node("save_state", save_state_node)
+    graph.add_node("clarify", clarify_node)
 
     graph.add_edge(START, "input_guard")
     graph.add_edge("output_guard", END)
+    graph.add_edge("clarify", END)
     graph.add_edge("static_fallback", "save_state")
     graph.add_edge("save_state", END)
 
@@ -164,7 +172,11 @@ def build_graph(
             route_after_guard,
             {"agent": "plan", "fallback": "static_fallback"},
         )
-        graph.add_edge("plan", "context_compress")
+        graph.add_conditional_edges(
+            "plan",
+            route_after_plan,
+            {"clarify": "clarify", "next": "context_compress"},
+        )
         graph.add_edge("context_compress", "agent")
         graph.add_conditional_edges(
             "agent",
@@ -194,7 +206,11 @@ def build_graph(
             route_after_guard,
             {"agent": "plan", "fallback": "static_fallback"},
         )
-        graph.add_edge("plan", "read_once")
+        graph.add_conditional_edges(
+            "plan",
+            route_after_plan,
+            {"clarify": "clarify", "next": "read_once"},
+        )
         graph.add_edge("read_once", "context_compress")
         graph.add_edge("context_compress", "agent")
         graph.add_conditional_edges(

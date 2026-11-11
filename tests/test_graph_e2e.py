@@ -196,6 +196,27 @@ def test_plan_injects_facet_checklist() -> None:
     )
 
 
+def test_ambiguous_elliptical_routes_to_clarify() -> None:
+    """上一轮多个问题 + 本轮「如何做？」→ 先澄清，不猜、不检索。"""
+    llm = MockChatModel()
+    app = build_graph(llm=llm, read_tool=make_tool())
+    history = [
+        HumanMessage(
+            id="h0",
+            content="我想问三件事：第一，A？第二，B？第三，C？",
+        )
+    ]
+
+    state = run_turn(app, "如何做？", history=history, turn_id=1)
+
+    assert state.last_node == "clarify"
+    assert state.clarification_needed is True
+    assert len(state.clarification_candidates) == 3
+    assert llm.call_count == 0
+    assert isinstance(state.messages[-1], AIMessage)
+    assert "哪一个" in state.messages[-1].content
+
+
 def test_tool_node_records_facet_attempt() -> None:
     state = LegalState(
         messages=[

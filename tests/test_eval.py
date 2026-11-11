@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from legalqa.corpus.index import VectorIndex
 from legalqa.eval import (
     CheckResult,
+    check_clarification,
     check_coverage,
     check_disclaimer,
     check_hallucination,
@@ -466,3 +467,20 @@ def test_strip_system_notes_removes_backfill_and_warning() -> None:
 def test_strip_system_notes_passthrough() -> None:
     assert strip_system_notes("普通回答") == "普通回答"
     assert strip_system_notes("") == ""
+
+
+def test_clarification_check_lists_candidates() -> None:
+    text = (
+        "你指的是上一轮的哪一个问题？\n"
+        "1. 拖欠工资能否要补偿\n2. 未签合同能否要双倍工资\n"
+        "请回复编号。"
+    )
+    result = check_clarification(
+        text, ["拖欠工资能否要补偿", "未签合同能否要双倍工资"]
+    )
+    assert result.passed
+
+
+def test_clarification_check_rejects_missing_candidates() -> None:
+    result = check_clarification("请再描述一下问题。", ["A方面", "B方面"])
+    assert not result.passed

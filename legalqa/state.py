@@ -67,6 +67,9 @@ class LegalState:
     # 例：「回到最开始第二个问题」→「孩子抚养权归谁」。
     resolved_query: str = ""
     ordinal_reason: str = ""
+    # 上一轮有多个问题、本轮又是非编号追问时，先澄清指哪一个。
+    clarification_needed: bool = False
+    clarification_candidates: list[str] = field(default_factory=list)
     turn_id: int = 0
 
     # ------------------------------------------------------------------

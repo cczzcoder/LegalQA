@@ -31,6 +31,7 @@ from langchain_core.messages import AIMessage, HumanMessage  # noqa: E402
 from legalqa.cli import build_embedder, build_llm, load_dotenv  # noqa: E402
 from legalqa.corpus.index import VectorIndex  # noqa: E402
 from legalqa.eval import (  # noqa: E402
+    check_clarification,
     check_coverage,
     check_disclaimer,
     check_expected_citation,
@@ -63,22 +64,30 @@ def run_turn(app, index, history: list, turn: dict, turn_id: int) -> dict:
     model_body = strip_system_notes(answer)
     all_docs = list(state.retrieved_docs or [])
     coverage = check_coverage(model_body, turn.get("sub_questions"))
-    checks = [
-        check_disclaimer(checked),
-        check_length(checked),
-        check_traceability(model_body, all_docs),
-        check_hallucination(model_body, index),
-        check_refusal(model_body, bool(turn.get("should_answer", True))),
-    ]
-    if turn.get("expect_law") or turn.get("accept_articles"):
-        checks.append(
-            check_expected_citation(
-                model_body,
-                turn.get("expect_law"),
-                turn.get("expect_article_no"),
-                turn.get("accept_articles"),
+    clarification = bool(turn.get("expect_clarification"))
+    if clarification:
+        checks = [
+            check_clarification(
+                checked, list(state.clarification_candidates or [])
             )
-        )
+        ]
+    else:
+        checks = [
+            check_disclaimer(checked),
+            check_length(checked),
+            check_traceability(model_body, all_docs),
+            check_hallucination(model_body, index),
+            check_refusal(model_body, bool(turn.get("should_answer", True))),
+        ]
+        if turn.get("expect_law") or turn.get("accept_articles"):
+            checks.append(
+                check_expected_citation(
+                    model_body,
+                    turn.get("expect_law"),
+                    turn.get("expect_article_no"),
+                    turn.get("accept_articles"),
+                )
+            )
     return {
         "query": turn["query"],
         "passed": all(check.passed for check in checks),
@@ -103,9 +112,11 @@ def run_turn(app, index, history: list, turn: dict, turn_id: int) -> dict:
                 "ratio": round(coverage.ratio, 4),
                 "missing": coverage.missing,
             }
-            if turn.get("sub_questions")
+            if turn.get("sub_questions") and not clarification
             else None
         ),
+        "clarified": clarification,
+        "clarification_candidates": list(state.clarification_candidates or []),
         "output_blocked": bool(state.output_blocked),
         "guard_reason": str(state.output_reason or ""),
     }

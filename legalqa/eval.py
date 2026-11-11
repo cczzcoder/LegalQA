@@ -38,6 +38,7 @@ __all__ = [
     "check_coverage",
     "check_required_citations",
     "check_facet_coverage",
+    "check_clarification",
     "extract_answer",
     "strip_backfill_appendix",
     "strip_system_notes",
@@ -441,6 +442,26 @@ def check_expected_citation(
         "命中期望法条",
         False,
         f"未引用《{short}》第{targets[0][1]}条{extra}",
+    )
+
+
+def check_clarification(
+    text: str, candidates: Sequence[str] | None
+) -> CheckResult:
+    """澄清回答是否在问「哪一个」并列出候选。"""
+    body = text or ""
+    has_prompt = any(
+        marker in body for marker in ("哪一个", "编号", "哪一问", "哪一个问题")
+    )
+    items = [str(item) for item in (candidates or []) if str(item).strip()]
+    if not items:
+        return CheckResult("澄清追问", has_prompt, "" if has_prompt else "没有澄清提示")
+    listed = sum(1 for item in items if item[:10] in body)
+    passed = has_prompt and listed >= min(2, len(items))
+    return CheckResult(
+        "澄清追问",
+        passed,
+        "" if passed else f"只列出 {listed}/{len(items)} 个候选",
     )
 
 

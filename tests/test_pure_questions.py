@@ -7,6 +7,7 @@ from langchain_core.messages import HumanMessage
 from legalqa.pure.questions import (
     extract_numbered_questions,
     is_elliptical_followup,
+    resolve_elliptical_context,
     resolve_elliptical_from_messages,
     resolve_ordinal,
     resolve_ordinal_from_messages,
@@ -127,3 +128,15 @@ def test_resolve_elliptical_uses_previous_question() -> None:
     resolved, reason = resolve_elliptical_from_messages("如何做？", messages)
     assert reason == "elliptical_previous"
     assert "拖欠工资" in (resolved or "")
+
+
+def test_resolve_elliptical_returns_candidates_for_multi_question() -> None:
+    previous = "我想问三件事：第一，A？第二，B？第三，C？"
+    messages = [
+        HumanMessage(id="h1", content=previous),
+        HumanMessage(id="h2", content="如何做？"),
+    ]
+    resolved, reason, candidates = resolve_elliptical_context("如何做？", messages)
+    assert resolved is None
+    assert reason == "ambiguous_elliptical"
+    assert len(candidates) == 3

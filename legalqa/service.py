@@ -190,6 +190,8 @@ class LegalQAService:
                 "output_blocked": bool(state.output_blocked),
                 "output_reason": state.output_reason,
                 "external_citations": list(state.external_citations),
+                "clarified": bool(state.clarification_needed),
+                "clarification_candidates": list(state.clarification_candidates),
                 "iterations": int(state.iteration_count),
                 "channel": state.retrieval_channel,
                 "score": round(float(state.rag_score or 0.0), 4),

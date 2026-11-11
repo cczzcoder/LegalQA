@@ -95,6 +95,24 @@ def test_plan_keeps_self_contained_short_question() -> None:
     assert out["resolved_query"] == ""
 
 
+def test_plan_requests_clarification_for_multi_question_followup() -> None:
+    previous = "我想问三件事：第一，A？第二，B？第三，C？"
+    state = LegalState(
+        user_query="如何做？",
+        messages=[
+            HumanMessage(id="h1", content=previous),
+            HumanMessage(id="h2", content="如何做？"),
+        ],
+    )
+
+    out = make_plan_node()(state)
+
+    assert out["clarification_needed"] is True
+    assert len(out["clarification_candidates"]) == 3
+    assert out["resolved_query"] == ""
+    assert out["ordinal_reason"] == "ambiguous_elliptical"
+
+
 def test_plan_refines_facets_with_llm() -> None:
     llm = _FakeLLM(
         content=(
