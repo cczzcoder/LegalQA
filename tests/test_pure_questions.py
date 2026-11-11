@@ -6,6 +6,8 @@ from langchain_core.messages import HumanMessage
 
 from legalqa.pure.questions import (
     extract_numbered_questions,
+    is_elliptical_followup,
+    resolve_elliptical_from_messages,
     resolve_ordinal,
     resolve_ordinal_from_messages,
 )
@@ -103,3 +105,25 @@ def test_resolve_from_messages_excludes_current_query() -> None:
     resolved, reason = resolve_ordinal_from_messages("第二个问题呢？", messages)
     assert reason == "ordinal_recent"
     assert resolved == "B"
+
+
+def test_elliptical_followup_markers() -> None:
+    assert is_elliptical_followup("如何做？")
+    assert is_elliptical_followup("那具体怎么算？")
+    assert is_elliptical_followup("然后呢")
+    assert is_elliptical_followup("刚才那个怎么办")
+
+
+def test_self_contained_short_question_is_not_elliptical() -> None:
+    assert not is_elliptical_followup("工伤怎么认定？")
+    assert not is_elliptical_followup("怎么申请专利？")
+
+
+def test_resolve_elliptical_uses_previous_question() -> None:
+    messages = [
+        HumanMessage(id="h1", content="公司拖欠工资，我想辞职还能要补偿吗？"),
+        HumanMessage(id="h2", content="如何做？"),
+    ]
+    resolved, reason = resolve_elliptical_from_messages("如何做？", messages)
+    assert reason == "elliptical_previous"
+    assert "拖欠工资" in (resolved or "")

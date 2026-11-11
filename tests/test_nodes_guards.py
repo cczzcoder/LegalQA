@@ -265,6 +265,24 @@ def test_input_guard_keeps_history_and_turn_id() -> None:
     assert "trace" not in out or out["trace"] != [], "trace 应保留"
 
 
+def test_output_guard_records_external_citations() -> None:
+    """知识库外引用不能被当作已核实依据，必须单独记录。"""
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="醉驾怎么判"),
+            AIMessage(
+                id="a1",
+                content=f"依据《刑法》第二百四十五条。\n\n{DISCLAIMER}",
+            ),
+        ]
+    )
+    out = output_guard_node(state, index=_corpus_index())
+
+    assert out["external_citations"] == ["《刑法》第245条"]
+    assert out["output_reason"] == "unverified_citation"
+    assert "知识库之外" in out["messages"][0].content
+
+
 def test_output_guard_repairs_truncated_disclaimer() -> None:
     state = LegalState(
         messages=[

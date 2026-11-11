@@ -119,6 +119,7 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         ),
         output_blocked=bool(state.output_blocked),
         guard_reason=str(state.output_reason or ""),
+        external_citations=list(state.external_citations or []),
     )
 
     report.checks.append(check_disclaimer(checked))
@@ -370,6 +371,7 @@ def main() -> int:
                 ),
                 "output_blocked": r.output_blocked,
                 "guard_reason": r.guard_reason,
+                "external_citations": r.external_citations,
                 "checks": [
                     {"name": c.name, "passed": c.passed, "detail": c.detail}
                     for c in r.checks

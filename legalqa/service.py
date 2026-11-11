@@ -7,6 +7,7 @@ CLI 的打印逻辑不在这里复用；本模块只负责「一次提问 → �
 from __future__ import annotations
 
 import argparse
+import os
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -54,7 +55,16 @@ class LegalQAService:
         )
         # 与当前评测基线一致：不做 LLM 重排、不做无条件补召回
         self._mode = mode
-        self.read_tool = ReadTool(self.index, self.embedder)
+        # 非编号省略指代（「如何做？」）需要把上一轮问题补成独立检索串。
+        # rewriter 内部有 needs_rewrite 门控，只有短追问才会多一次 LLM 调用。
+        self._rewriter = None
+        if os.environ.get("LEGALQA_REWRITE", "1") != "0":
+            from legalqa.tools.rewriter import make_llm_rewriter
+
+            self._rewriter = make_llm_rewriter(self.llm)
+        self.read_tool = ReadTool(
+            self.index, self.embedder, rewriter=self._rewriter
+        )
         self.app = build_graph(llm=self.llm, read_tool=self.read_tool, mode=mode)
 
     def reload(self) -> None:
@@ -64,7 +74,9 @@ class LegalQAService:
             ROOT / "data/corpus/all.jsonl",
             self.embedder,
         )
-        self.read_tool = ReadTool(self.index, self.embedder)
+        self.read_tool = ReadTool(
+            self.index, self.embedder, rewriter=self._rewriter
+        )
         self.app = build_graph(llm=self.llm, read_tool=self.read_tool, mode=self._mode)
 
     # ------------------------------------------------------------------
@@ -177,6 +189,7 @@ class LegalQAService:
                 "guard_reason": state.guard_reason,
                 "output_blocked": bool(state.output_blocked),
                 "output_reason": state.output_reason,
+                "external_citations": list(state.external_citations),
                 "iterations": int(state.iteration_count),
                 "channel": state.retrieval_channel,
                 "score": round(float(state.rag_score or 0.0), 4),

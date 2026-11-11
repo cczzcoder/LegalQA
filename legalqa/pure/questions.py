@@ -15,12 +15,15 @@ from typing import Sequence
 
 from langchain_core.messages import HumanMessage
 
+from legalqa import config
 from legalqa.pure.retrieval import cn_to_int
 
 __all__ = [
     "extract_numbered_questions",
     "resolve_ordinal",
     "resolve_ordinal_from_messages",
+    "is_elliptical_followup",
+    "resolve_elliptical_from_messages",
 ]
 
 _CN_NUM = r"[一二三四五六七八九十两0-9]{1,3}"
@@ -172,3 +175,49 @@ def resolve_ordinal_from_messages(
     if humans and humans[-1].strip() == str(query or "").strip():
         humans = humans[:-1]
     return resolve_ordinal(query, humans)
+
+
+# 非编号追问的强信号。刻意不把裸「怎么/如何」放进来，否则
+# 「怎么申请专利」这类自包含单问会被误判成追问。
+_FOLLOWUP_STARTS = (
+    "那", "这", "然后", "还有", "继续", "接着", "上面", "前面", "刚才", "具体",
+)
+_FOLLOWUP_MARKERS = (
+    "如何做", "怎么做", "怎么办", "咋办", "然后呢", "接下来",
+    "下一步", "具体怎么", "那具体", "这个怎么", "那个怎么",
+)
+
+
+def is_elliptical_followup(query: str) -> bool:
+    """是否是省略指代的短追问（「如何做？」「那具体怎么算？」）。"""
+    text = str(query or "").strip()
+    if not text or len(text) > 24:
+        return False
+    # 带明确法律实体/术语的短句通常自包含，不覆盖成上一轮问题。
+    if any(term in text for term in config.LEGAL_TERMS):
+        return False
+    if any(marker in text for marker in _FOLLOWUP_MARKERS):
+        return True
+    if text.startswith(_FOLLOWUP_STARTS):
+        return True
+    if text.rstrip("？?。！!…~ ").endswith("呢"):
+        return True
+    return any(token in text for token in config.DEICTIC_PRONOUNS) and len(text) <= 20
+
+
+def resolve_elliptical_from_messages(
+    query: str, messages: Sequence[object]
+) -> tuple[str | None, str]:
+    """非编号追问：把上一轮用户问题作为确定性兜底指代。"""
+    if not is_elliptical_followup(query):
+        return None, "not_followup"
+    humans = [
+        str(getattr(message, "content", "") or "")
+        for message in messages
+        if isinstance(message, HumanMessage)
+    ]
+    if humans and humans[-1].strip() == str(query or "").strip():
+        humans = humans[:-1]
+    if not humans:
+        return None, "no_history"
+    return humans[-1], "elliptical_previous"

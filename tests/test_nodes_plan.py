@@ -71,6 +71,30 @@ def test_plan_ignores_current_query_when_scanning_history() -> None:
     assert out["ordinal_reason"] == "out_of_range"
 
 
+def test_plan_resolves_elliptical_followup() -> None:
+    messages = [
+        HumanMessage(id="h1", content="公司拖欠工资，我想辞职还能要补偿吗？"),
+        HumanMessage(id="h2", content="如何做？"),
+    ]
+    state = LegalState(user_query="如何做？", messages=messages)
+
+    out = make_plan_node()(state)
+
+    assert out["ordinal_reason"] == "elliptical_previous"
+    assert "拖欠工资" in out["resolved_query"]
+
+
+def test_plan_keeps_self_contained_short_question() -> None:
+    state = LegalState(
+        user_query="工伤怎么认定？",
+        messages=[HumanMessage(id="h1", content="工伤怎么认定？")],
+    )
+
+    out = make_plan_node()(state)
+
+    assert out["resolved_query"] == ""
+
+
 def test_plan_refines_facets_with_llm() -> None:
     llm = _FakeLLM(
         content=(

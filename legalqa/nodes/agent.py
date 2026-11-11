@@ -131,7 +131,7 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
         if resolved:
             messages = insert_before_last_human(
                 messages,
-                "【系统提示】本轮追问中的序号指代已解析为："
+                "【系统提示】本轮追问的指代已解析为："
                 f"{resolved}。请围绕该问题作答；调用 read_law 时，"
                 "query 必须包含该问题的关键词。",
             )

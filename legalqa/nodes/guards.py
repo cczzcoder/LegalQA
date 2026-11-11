@@ -71,6 +71,7 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     "guard_reason": "",
     "output_blocked": False,
     "output_reason": "",
+    "external_citations": [],
     # 降级
     "fallback_text": "",
     "fallback_saved": False,
@@ -845,6 +846,7 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
             **base,
             "messages": [target.model_copy(update={"content": content})],
             "retrieved_docs": merged,
+            "external_citations": sorted(external),
             "output_blocked": True,
             "output_reason": "unverified_citation",
         }

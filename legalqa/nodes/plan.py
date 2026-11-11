@@ -22,7 +22,10 @@ from legalqa.pure.facets import (
     should_refine_facets,
     split_query,
 )
-from legalqa.pure.questions import resolve_ordinal_from_messages
+from legalqa.pure.questions import (
+    resolve_elliptical_from_messages,
+    resolve_ordinal_from_messages,
+)
 from legalqa.state import LegalState
 
 __all__ = ["plan_node", "make_plan_node"]
@@ -71,6 +74,12 @@ def make_plan_node(llm: Any = None):
         resolved, reason = resolve_ordinal_from_messages(
             query, state.get("messages") or []
         )
+        if not resolved:
+            resolved, elliptical_reason = resolve_elliptical_from_messages(
+                query, state.get("messages") or []
+            )
+            if resolved:
+                reason = elliptical_reason
         facets, facet_source = _plan_facets(llm, query)
         return {
             "resolved_query": (resolved or "").strip(),

@@ -76,6 +76,8 @@ class LegalState:
     guard_reason: str = ""
     output_blocked: bool = False
     output_reason: str = ""
+    # 知识库之外、无法逐字校验的引用（如《刑法》第 X 条）。
+    external_citations: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # E. RAG

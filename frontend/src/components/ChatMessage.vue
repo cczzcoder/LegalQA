@@ -16,9 +16,15 @@
         </button>
       </div>
 
-      <div v-if="message.meta?.degraded || message.meta?.output_blocked" class="message-flags">
+      <div
+        v-if="message.meta?.degraded || message.meta?.output_blocked || message.meta?.external_citations?.length"
+        class="message-flags"
+      >
         <span v-if="message.meta?.degraded" class="flag flag-amber">系统降级</span>
-        <span v-if="message.meta?.output_blocked" class="flag flag-gold">引用已核验</span>
+        <span v-if="message.meta?.external_citations?.length" class="flag flag-amber">库外引用未校验</span>
+        <span v-else-if="message.meta?.output_reason === 'unverified_citation'" class="flag flag-gold">引用有未核实项</span>
+        <span v-else-if="message.meta?.output_reason === 'citation_backfilled'" class="flag flag-gold">引用已核验</span>
+        <span v-else-if="message.meta?.output_blocked" class="flag flag-gold">回答已护栏处理</span>
       </div>
 
       <div v-if="message.role === 'assistant' && message.content" class="message-actions">

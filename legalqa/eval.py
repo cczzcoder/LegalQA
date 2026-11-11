@@ -134,6 +134,7 @@ class CaseReport:
     # 避免「护栏拦住了错误引用」和「模型本来就没引错」在指标上混在一起。
     output_blocked: bool = False
     guard_reason: str = ""
+    external_citations: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
