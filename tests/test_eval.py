@@ -181,6 +181,26 @@ def test_expected_citation_matches_nested_interpretation() -> None:
     assert check_expected_citation(text, expected, 23).passed
 
 
+def test_expected_citation_accepts_verbatim_quote_without_law_anchor() -> None:
+    """条号被同段另一部法律抢走归因，但引文逐字来自期望条文时仍算命中。"""
+    from legalqa.eval import check_expected_citation
+
+    text = (
+        "结合《立法法》的原则；第二十二条虽提及"
+        "“国际中文教育应当教授国家通用语言文字”，但属于倡导性规范。"
+    )
+    expected_text = (
+        "国际中文教育应当教授国家通用语言文字，"
+        "通过国际交流合作促进人类文明交流互鉴。"
+    )
+    assert check_expected_citation(
+        text,
+        "中华人民共和国国家通用语言文字法",
+        22,
+        expected_text=expected_text,
+    ).passed
+
+
 def test_expected_citation_accepts_alternative_article() -> None:
     """同一结论的并列条文都算命中，不能只认合成金标那一条。"""
     from legalqa.eval import check_expected_citation

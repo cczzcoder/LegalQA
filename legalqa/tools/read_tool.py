@@ -19,6 +19,7 @@ from langchain_core.messages import AnyMessage
 from legalqa import config
 from legalqa.corpus.bm25 import BM25Index, rrf_fuse
 from legalqa.corpus.index import Embedder, VectorIndex
+from legalqa.pure.aliases import expand_query
 from legalqa.pure.retrieval import (
     extract_article_no,
     fuse_rank,
@@ -86,9 +87,10 @@ class ToolResult:
     dense_top1: float = 0.0
     channel: str = "none"         # exact / dense / none
     latency_ms: int = 0
-    query: str = ""               # 实际用于检索的串（可能是改写结果）
+    query: str = ""               # 实际用于检索的串（可能是改写/别名扩展结果）
     rewrite_applied: bool = False
     rewrite_reason: str = ""
+    alias_applied: bool = False
     message: str = ""             # 给模型看的文本
     error: str = ""
 
@@ -318,10 +320,12 @@ class ReadTool:
                     return result
 
             # ---- 通道 A：语义召回 + 融合重排 ----
-            # 这里**不做术语扩展**。曾经按文档 §6.4.3 实现过口语→术语词表，
-            # 实测反而有害：R@6 从 60.8% 掉到 57.5%。
-            # bge-m3 的跨表达能力强于人为注入术语，追加术语会稀释原句语义。
-            # 真正有效的是 LLM 改写（R@6 55%→75%），见 §6.4.12。
+            # 通用口语→术语词表实测有害（R@6 60.8%→57.5%），所以不做全局扩展；
+            # 只对语言文字这类词表鸿沟明确的领域做确定性别名追加。
+            text, aliases = expand_query(text)
+            if aliases:
+                result.query = text
+                result.alias_applied = True
             vector = self._embedder.embed_query(text)
             hits = self._index.search(vector, k=config.RAG_RECALL_K)
             if not hits:

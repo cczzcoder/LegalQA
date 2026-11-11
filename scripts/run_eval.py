@@ -138,6 +138,7 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
                 case.get("expect_law"),
                 case.get("expect_article_no"),
                 case.get("accept_articles"),
+                case.get("source_text"),
             )
         )
     return report

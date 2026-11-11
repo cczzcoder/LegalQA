@@ -44,6 +44,28 @@ DISCLAIMER = "本回答仅供参考，不构成正式法律意见。"
 # 模型输出被 max_tokens 截断时，可能留下这句的前半截。
 _PARTIAL_DISCLAIMER = "本回答仅供参考，不构成"
 
+_QUOTE_RE = re.compile(r"[“「]([^”」]{8,200})[”」]")
+_QUOTE_NOISE = re.compile(r"[\s，。；：、！？,.;:!?（）()《》\"'“”‘’「」]")
+
+
+def _doc_by_quote(number: int, text: str, docs: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+    """显式法名不可用时，用条号附近的逐字引文反查检索结果。
+
+    模型常写「结合《立法法》……；第二十二条虽提及“……”」，条号前的最近法名
+    并不是真正被引用的法。引文与某条检索结果逐字一致时，引文比法名更可信。
+    """
+    quotes = [_QUOTE_NOISE.sub("", m.group(1)) for m in _QUOTE_RE.finditer(text or "")]
+    quotes = [quote for quote in quotes if len(quote) >= 10]
+    if not quotes:
+        return None
+    for doc in docs:
+        if int(doc.get("article_no") or -1) != int(number):
+            continue
+        body = _QUOTE_NOISE.sub("", str(doc.get("text") or ""))
+        if any(quote in body for quote in quotes):
+            return doc
+    return None
+
 # 输出侧的硬红线：法律咨询不能给胜诉承诺
 UNSAFE_OUTPUT_PATTERNS: tuple[str, ...] = (
     "保证胜诉", "包赢", "百分百胜诉", "100%胜诉", "肯定能赢", "一定能赢",
@@ -804,20 +826,29 @@ def _output_guard_core(
                         known_law = candidates[0]
                         law_in_corpus = True
 
-            # ③ 语料库里根本没有这部法律（如《刑法》）→ 先查权威白名单
+            # ③ 语料库里根本没有这部法律（如《刑法》）→ 先看引文能否落到
+            #    本轮检索结果，再查权威白名单。显式法名可能只是顺带提及。
+            doc = None
             if index is not None and law and not law_in_corpus:
-                _check_external(
-                    law,
-                    number,
-                    text,
-                    whitelist,
-                    external_verified,
-                    external,
-                    external_mismatch,
-                )
-                continue
+                doc = _doc_by_quote(number, text, docs)
+                if doc is None:
+                    _check_external(
+                        law,
+                        number,
+                        text,
+                        whitelist,
+                        external_verified,
+                        external,
+                        external_mismatch,
+                    )
+                    continue
 
-            doc = index.by_article(number, known_law) if index is not None else None
+            if doc is None:
+                doc = index.by_article(number, known_law) if index is not None else None
+
+            # 裸条号或法名歧义时，逐字引文比「最近法名」更可信。
+            if doc is None and index is not None:
+                doc = _doc_by_quote(number, text, docs)
 
             known_last: str | None = None
 

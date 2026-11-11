@@ -10,12 +10,29 @@ from legalqa.corpus.index import VectorIndex
 from legalqa.external import ExternalEntry, ExternalWhitelist
 from legalqa.nodes.guards import (
     DISCLAIMER,
+    _doc_by_quote,
     extract_text,
     input_guard_node,
     make_output_guard_node,
     output_guard_node,
 )
 from legalqa.state import LegalState
+
+
+def test_doc_by_quote_prefers_verbatim_article() -> None:
+    docs = [
+        {"law_name": "中华人民共和国国家通用语言文字法", "article_no": 22,
+         "text": "国际中文教育应当教授国家通用语言文字，通过国际交流合作促进人类文明交流互鉴。"}
+    ]
+    text = "结合《立法法》的原则；第二十二条虽提及“国际中文教育应当教授国家通用语言文字”。"
+
+    assert _doc_by_quote(22, text, docs)["article_no"] == 22
+    assert _doc_by_quote(11, text, docs) is None
+
+
+def test_doc_by_quote_ignores_short_quotes() -> None:
+    docs = [{"law_name": "X法", "article_no": 1, "text": "短引文无效"}]
+    assert _doc_by_quote(1, "《X法》第一条“短引文”", docs) is None
 
 
 class _FakeEmbedder:

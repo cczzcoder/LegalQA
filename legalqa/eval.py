@@ -397,11 +397,30 @@ def check_facet_coverage(
     return CoverageResult(total=len(items), covered=covered, missing=missing)
 
 
+_CLAUSE_SPLIT = re.compile(r"[，。；、！？,.;!?]+")
+_QUOTE_NOISE = re.compile(r"[\s，。；：、！？,.:;!?（）()《》\"'“”‘’「」]")
+
+
+def _quotes_expected_article(text: str, expected_text: str, min_chars: int = 12) -> bool:
+    """答案是否逐字引用了期望条文的某个分句。
+
+    合成集中模型有时写「第二十二条虽提及“……”」，条号前的最近法名是另一部
+    法律；但引文本身逐字来自期望条文，这比法名归因更可靠。
+    """
+    body = _QUOTE_NOISE.sub("", text or "")
+    for clause in _CLAUSE_SPLIT.split(expected_text or ""):
+        clause = _QUOTE_NOISE.sub("", clause)
+        if len(clause) >= min_chars and clause in body:
+            return True
+    return False
+
+
 def check_expected_citation(
     text: str,
     expected_law: str | None,
     expected_article_no: int | None,
     accept_articles: Sequence[dict[str, Any]] | None = None,
+    expected_text: str | None = None,
 ) -> CheckResult:
     """答案有没有引用「正确的那条法条」。
 
@@ -416,7 +435,8 @@ def check_expected_citation(
     支撑同一结论（如「未签合同双倍工资」可引劳动合同法 82 或实施条例 6）。
     只认一条会把正确回答判错——这是合成金标最大的噪声来源。
     """
-    text = strip_quoted_text(text)
+    raw_text = text or ""
+    text = strip_quoted_text(raw_text)
     targets: list[tuple[str, int]] = []
     if expected_law and expected_article_no is not None:
         targets.append((str(expected_law), int(expected_article_no)))
@@ -437,6 +457,9 @@ def check_expected_citation(
             # 没写法律名时放宽（模型常承前省略：「依据第四十七条」）
             if cited_law is None or same_law(cited_law, law):
                 return CheckResult("命中期望法条", True)
+
+    if expected_text and _quotes_expected_article(raw_text, expected_text):
+        return CheckResult("命中期望法条", True, "引用原文")
 
     short = str(targets[0][0]).replace("中华人民共和国", "")
     extra = f"（另有 {len(targets) - 1} 条备选）" if len(targets) > 1 else ""

@@ -43,10 +43,39 @@ class FakeEmbedder:
         return self.query_vector
 
 
+class RecordingEmbedder(FakeEmbedder):
+    def __init__(self) -> None:
+        super().__init__()
+        self.texts: list[str] = []
+
+    def embed_query(self, text: str) -> list[float]:
+        self.texts.append(text)
+        return super().embed_query(text)
+
+
 def make_tool(embedder: FakeEmbedder | None = None, rewriter=None) -> ReadTool:
     emb = embedder or FakeEmbedder()
     index = VectorIndex.build(DOCS, emb)
     return ReadTool(index, emb, rewriter=rewriter)
+
+
+def test_domain_alias_expands_semantic_query() -> None:
+    emb = RecordingEmbedder()
+    tool = make_tool(emb)
+    result = tool.run("孩子在海外学中文，老师主要教方言和繁体字")
+
+    assert result.alias_applied
+    assert "国际中文教育" in result.query
+    assert "国际中文教育" in emb.texts[-1]
+
+
+def test_domain_alias_leaves_unrelated_query_untouched() -> None:
+    emb = RecordingEmbedder()
+    tool = make_tool(emb)
+    result = tool.run("劳动合同到期不续签有补偿吗")
+
+    assert not result.alias_applied
+    assert emb.texts[-1] == "劳动合同到期不续签有补偿吗"
 
 
 # ---------------------------------------------------------------------------
