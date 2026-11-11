@@ -331,6 +331,25 @@ def test_refusal_recognizes_out_of_scope_wording() -> None:
     assert not check_refusal(text, True).passed
 
 
+def test_refusal_recognizes_alternative_wording() -> None:
+    """off-006：模型说「未直接规定 / 不足以完整回答」也算合格拒答。"""
+    from legalqa.eval import check_refusal
+
+    text = (
+        "现有检索结果中未直接规定“如何申请专利”的程序性要求。所列条文仅涉及"
+        "专利申请权的归属，不涉及申请步骤、形式要件或行政程序。因此，当前材料"
+        "不足以完整回答“怎么申请专利”，需要补充检索。"
+    )
+    assert check_refusal(text, False).passed
+
+    text2 = (
+        "现有检索结果未直接列明股权转让所涉具体税种，仅原则性规定纳税义务，"
+        "但未明确税种、税率及征管规则。当前材料未包含相关税收实体法条文，"
+        "无法从所提供材料中提取具体计税依据。"
+    )
+    assert check_refusal(text2, False).passed
+
+
 # ---------------------------------------------------------------------------
 # 问题覆盖（多问 / 复杂问）
 # ---------------------------------------------------------------------------

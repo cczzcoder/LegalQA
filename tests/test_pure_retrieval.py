@@ -386,3 +386,38 @@ def test_extract_citations_still_attributes_nearby_bare_number() -> None:
     text = "依照劳动合同法第八十七条的规定，用人单位应当支付赔偿金。"
     pairs = extract_citations(text, ["中华人民共和国劳动合同法"])
     assert pairs == [("劳动合同法", 87)]
+
+
+def test_extract_citations_trailing_parenthetical_law() -> None:
+    """条号后的「（民法典）」应覆盖前面最近的法名。"""
+    from legalqa.pure.retrieval import extract_citations
+
+    laws = ["中华人民共和国民用航空法", "中华人民共和国民法典"]
+    text = (
+        "《中华人民共和国民用航空法》第一百八十五条和"
+        "第一千二百三十八条（民法典）分别规定。"
+    )
+    pairs = extract_citations(text, laws)
+    assert pairs == [
+        ("中华人民共和国民用航空法", 185),
+        ("中华人民共和国民法典", 1238),
+    ]
+
+
+def test_extract_citations_trailing_parenthetical_with_article() -> None:
+    """括号里带条号是交叉引用，不能覆盖本条的法名。"""
+    from legalqa.pure.retrieval import extract_citations
+
+    laws = ["中华人民共和国劳动合同法", "中华人民共和国劳动合同法实施条例"]
+    text = "《劳动合同法》第八十七条（实施条例第 7 条）另有规定。"
+    pairs = extract_citations(text, laws)
+    assert pairs[0] == ("劳动合同法", 87)
+
+
+def test_extract_citations_ignores_non_law_parenthetical() -> None:
+    """「（2020 版本）」不是法名，不能覆盖前面的法名。"""
+    from legalqa.pure.retrieval import extract_citations
+
+    text = "《中华人民共和国民用航空法》第一百二十八条（2025-12-27 版本）规定。"
+    pairs = extract_citations(text, ["中华人民共和国民用航空法"])
+    assert pairs == [("中华人民共和国民用航空法", 128)]

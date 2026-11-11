@@ -142,6 +142,18 @@ _COMMON_PREFIX = "中华人民共和国"
 # 法名比较前统一去掉的包装字符：模型写司法解释时常加〈〉，语料里没有。
 _LAW_NOISE = str.maketrans("", "", "《》〈〉（）()【】[] \t\u3000")
 _SENTENCE_END = "。"
+
+# 条号后面紧跟「（民法典）」：括号里的法名才是这条的归属。
+# 实测 aviation-001：模型写「《民用航空法》…第一千二百三十八条（民法典）」，
+# 按「之前最近法名」会归给民用航空法，误报第 1238 条不存在。
+_TRAILING_LAW = re.compile(
+    r"\s*[（(]\s*(?:《([^》]{2,40})》|([^（）()]{2,20}))\s*[）)]"
+)
+_ARTICLE_NO_TEXT = re.compile(
+    r"第\s*[一二三四五六七八九十百千零〇两0-9]{1,12}\s*条"
+)
+_LAW_TOKENS = ("法", "条例", "规定", "办法", "解释", "细则", "法典")
+_TRAILING_LAW_PREFIX = re.compile(r"^(?:参见|依据|根据|见|以下简称|即|注[:：])\s*")
 # 法名只归给同一句里其后「紧挨着枚举」的条号（第十四条、第十七条和第三十七条）。
 # 中间隔了大段正文再出现另一个条号时不再归因——实测 071：一句里先写
 # 《实施条例》第五十二条，隔了 15 个字再写「与第九百二十七条一致」，
@@ -187,6 +199,27 @@ def _bare_law_mentions(span: str, laws: Sequence[str]) -> list[tuple[int, str]]:
                     best[end] = candidate
                 start = index + 1
     return list(best.items())
+
+
+def _trailing_law(
+    text: str, start: int, law_names: Sequence[str]
+) -> str | None:
+    """条号后紧跟「（民法典）」时，把这条归到括号里的法。
+
+    只接受**纯法名**：括号里带条号（「（实施条例第 7 条）」）通常是交叉引用，
+    不是本条归属；「（2020-05-28 版本）」这类说明也不会误伤。
+    """
+    match = _TRAILING_LAW.match(text, start)
+    if not match:
+        return None
+    raw = (match.group(1) or match.group(2) or "").strip()
+    if not raw or _ARTICLE_NO_TEXT.search(raw):
+        return None
+    raw = _TRAILING_LAW_PREFIX.sub("", raw).strip()
+    if not raw or not any(token in raw for token in _LAW_TOKENS):
+        return None
+    resolved = resolve_law(raw, law_names) if law_names else None
+    return resolved or raw
 
 
 def extract_citations(
@@ -255,7 +288,8 @@ def extract_citations(
         )
         number = cn_to_int(match.group(1))
         if number is not None:
-            pairs.append((law, number))
+            trailing = _trailing_law(text, match.end(), law_names)
+            pairs.append((trailing or law, number))
     return pairs
 
 # 提问里「XX法」「XX条例」这类法律名。用来识别「问的是语料外的法律」。
