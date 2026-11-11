@@ -16,6 +16,7 @@ from legalqa.eval import (
     check_refusal,
     check_traceability,
     extract_answer,
+    strip_system_notes,
 )
 from legalqa.nodes.guards import DISCLAIMER
 
@@ -371,3 +372,34 @@ def test_coverage_without_questions_passes() -> None:
 def test_coverage_without_keywords_is_treated_as_covered() -> None:
     """评测规则没给关键词时宁可漏报，也不能冤枉一条完整回答。"""
     assert check_coverage("任意内容", [{"text": "无关键词"}]).passed
+
+
+# ---------------------------------------------------------------------------
+# 系统提示剥离（引用提示不应被当成模型幻觉）
+# ---------------------------------------------------------------------------
+def test_strip_system_notes_removes_warning_keeps_disclaimer() -> None:
+    text = (
+        "正文。\n\n【引用提示】以下条号在法条库中不存在：第89条\n\n"
+        "本回答仅供参考，不构成正式法律意见。"
+    )
+    body = strip_system_notes(text)
+    assert "【引用提示】" not in body
+    assert "第89条" not in body
+    assert "本回答仅供参考" in body
+
+
+def test_strip_system_notes_removes_backfill_and_warning() -> None:
+    text = (
+        "正文。\n\n【补充核对】……原文里的第三十八条……\n\n"
+        "【引用提示】以下条号不存在：第89条\n\n"
+        "本回答仅供参考，不构成正式法律意见。"
+    )
+    body = strip_system_notes(text)
+    assert "第三十八条" not in body
+    assert "第89条" not in body
+    assert "本回答仅供参考" in body
+
+
+def test_strip_system_notes_passthrough() -> None:
+    assert strip_system_notes("普通回答") == "普通回答"
+    assert strip_system_notes("") == ""

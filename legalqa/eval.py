@@ -38,6 +38,7 @@ __all__ = [
     "check_coverage",
     "extract_answer",
     "strip_backfill_appendix",
+    "strip_system_notes",
 ]
 
 # 答案长度合理区间。太短说明敷衍，太长说明没抓住重点。
@@ -112,6 +113,10 @@ class CaseReport:
     # 问题覆盖：用户一次提了多个子问题时，回答实际展开了几个。
     # 同样不参与通过判定，先作为独立指标观察。
     coverage: CoverageResult | None = None
+    # 输出护栏的诊断信息。护栏改写/拦截过回答时保留原因，
+    # 避免「护栏拦住了错误引用」和「模型本来就没引错」在指标上混在一起。
+    output_blocked: bool = False
+    guard_reason: str = ""
 
     @property
     def passed(self) -> bool:
@@ -370,3 +375,19 @@ def strip_backfill_appendix(text: str) -> str:
         return text[:start] + text[warn:]
     disclaimer = text.find(DISCLAIMER, start)
     return text[:start] + (text[disclaimer:] if disclaimer >= 0 else "")
+
+
+def strip_system_notes(text: str) -> str:
+    """只保留模型正文：去掉回捞附录和系统引用提示，保留免责声明。
+
+    与 `strip_backfill_appendix` 的区别：这里连【引用提示】也一起去掉。
+    引用提示是 OutputGuard 自己写的诊断文本，里面会**原样引用**它判定为
+    编造的条号；如果拿它做幻觉检查，等于把护栏的警告当成模型引用的条号，
+    重复计一次失败。护栏是否拦截由 `CaseReport.guard_reason` 单独记录。
+    """
+    body = strip_backfill_appendix(text)
+    warn = body.find(_WARNING_MARK)
+    if warn < 0:
+        return body
+    disclaimer = body.find(DISCLAIMER, warn)
+    return body[:warn] + (body[disclaimer:] if disclaimer >= 0 else "")

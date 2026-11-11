@@ -45,6 +45,7 @@ from legalqa.eval import (  # noqa: E402
     check_traceability,
     extract_answer,
     strip_backfill_appendix,
+    strip_system_notes,
 )
 from legalqa.graph import build_graph  # noqa: E402
 from legalqa.state import coerce_state  # noqa: E402
@@ -68,6 +69,9 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
     # 里面的交叉引用（「依照本法第三十八条」）不是模型的引用行为，
     # 算进去会既冤枉系统、又可能让没引对的回答蒙对。
     checked = strip_backfill_appendix(answer)
+    # 引用提示是护栏写的诊断文本，里面会原样引用它判定为编造的条号；
+    # 语义检查必须去掉，否则护栏的警告会被当成模型幻觉重复计一次。
+    model_body = strip_system_notes(answer)
     # OutputGuard 会把「按条号回查到的」条文并进 retrieved_docs，并打上
     # retrieval_source=backfill。这里拆成两份：
     #   - all_docs：检索 + 回捞核验，用于「引用可溯源」的通过判定
@@ -95,25 +99,27 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         answer=answer,
         retrieved=[_brief(d) for d in raw_docs],
         backfilled=[_brief(d) for d in backfilled_docs],
-        retrieval_coverage=check_traceability(checked, raw_docs),
+        retrieval_coverage=check_traceability(model_body, raw_docs),
         coverage=(
-            check_coverage(checked, case.get("sub_questions"))
+            check_coverage(model_body, case.get("sub_questions"))
             if case.get("sub_questions")
             else None
         ),
+        output_blocked=bool(state.output_blocked),
+        guard_reason=str(state.output_reason or ""),
     )
 
     report.checks.append(check_disclaimer(checked))
     report.checks.append(check_length(checked))
-    report.checks.append(check_traceability(checked, all_docs))
-    report.checks.append(check_hallucination(checked, index))
-    report.checks.append(check_refusal(checked, bool(case.get("should_answer"))))
+    report.checks.append(check_traceability(model_body, all_docs))
+    report.checks.append(check_hallucination(model_body, index))
+    report.checks.append(check_refusal(model_body, bool(case.get("should_answer"))))
     if case.get("should_answer") and case.get("must_mention"):
-        report.checks.append(check_keywords(checked, case["must_mention"]))
+        report.checks.append(check_keywords(model_body, case["must_mention"]))
     if case.get("expect_law") or case.get("accept_articles"):
         report.checks.append(
             check_expected_citation(
-                checked,
+                model_body,
                 case.get("expect_law"),
                 case.get("expect_article_no"),
                 case.get("accept_articles"),
@@ -302,6 +308,8 @@ def main() -> int:
                     if r.coverage
                     else None
                 ),
+                "output_blocked": r.output_blocked,
+                "guard_reason": r.guard_reason,
                 "checks": [
                     {"name": c.name, "passed": c.passed, "detail": c.detail}
                     for c in r.checks

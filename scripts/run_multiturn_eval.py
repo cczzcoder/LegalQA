@@ -40,6 +40,7 @@ from legalqa.eval import (  # noqa: E402
     check_traceability,
     extract_answer,
     strip_backfill_appendix,
+    strip_system_notes,
 )
 from legalqa.graph import build_graph  # noqa: E402
 from legalqa.state import coerce_state  # noqa: E402
@@ -59,19 +60,20 @@ def run_turn(app, index, history: list, turn: dict, turn_id: int) -> dict:
 
     answer = extract_answer(state.messages)
     checked = strip_backfill_appendix(answer)
+    model_body = strip_system_notes(answer)
     all_docs = list(state.retrieved_docs or [])
-    coverage = check_coverage(checked, turn.get("sub_questions"))
+    coverage = check_coverage(model_body, turn.get("sub_questions"))
     checks = [
         check_disclaimer(checked),
         check_length(checked),
-        check_traceability(checked, all_docs),
-        check_hallucination(checked, index),
-        check_refusal(checked, bool(turn.get("should_answer", True))),
+        check_traceability(model_body, all_docs),
+        check_hallucination(model_body, index),
+        check_refusal(model_body, bool(turn.get("should_answer", True))),
     ]
     if turn.get("expect_law") or turn.get("accept_articles"):
         checks.append(
             check_expected_citation(
-                checked,
+                model_body,
                 turn.get("expect_law"),
                 turn.get("expect_article_no"),
                 turn.get("accept_articles"),
@@ -104,11 +106,26 @@ def run_turn(app, index, history: list, turn: dict, turn_id: int) -> dict:
             if turn.get("sub_questions")
             else None
         ),
+        "output_blocked": bool(state.output_blocked),
+        "guard_reason": str(state.output_reason or ""),
     }
 
 
 def evaluate_case(app, index, case: dict) -> dict:
     history: list = []
+    # 可选的 history 种子：不参与检查，只用来构造长对话上下文。
+    # 这样测的是「压缩后指代是否还在」，而不是先生成 7 轮无关回答。
+    for position, item in enumerate(case.get("history") or []):
+        if not isinstance(item, dict):
+            continue
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        if item.get("role") == "user":
+            history.append(HumanMessage(content=content, id=f"seed-h-{position}"))
+        elif item.get("role") == "assistant":
+            history.append(AIMessage(content=content, id=f"seed-a-{position}"))
+
     turns = []
     for turn_id, turn in enumerate(case["turns"]):
         result = run_turn(app, index, history, turn, turn_id)
