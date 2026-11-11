@@ -280,6 +280,28 @@ def test_budget_exhaustion_forces_answer() -> None:
     assert not getattr(state.messages[-1], "tool_calls", None), "最后一条不得再要工具"
 
 
+def test_budget_exhaustion_replaces_search_preamble() -> None:
+    """最后一次作答只写「还需检索…」时，不能把半句话当最终回答。"""
+    llm = MockChatModel(
+        script=[
+            tool_call_message("c1", "第一条"),
+            tool_call_message("c2", "第二条"),
+            AIMessage(
+                id="a3",
+                content="还需检索工伤待遇标准。",
+                tool_calls=[{"id": "c3", "name": "read_law", "args": {"query": "工伤待遇"}}],
+            ),
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=make_tool())
+
+    state = run_turn(app, "反复检索")
+
+    assert config.FALLBACK_TEXTS["unfinished"] in state.messages[-1].content
+    assert state.degraded is True
+    assert not getattr(state.messages[-1], "tool_calls", None)
+
+
 def test_over_budget_unbinds_tools() -> None:
     """超预算时不给工具：模型物理上无法产生合法 tool_calls。"""
     llm = MockChatModel(

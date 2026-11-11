@@ -349,6 +349,16 @@ def test_refusal_recognizes_alternative_wording() -> None:
     )
     assert check_refusal(text2, False).passed
 
+    from legalqa import config
+
+    assert check_refusal(config.FALLBACK_TEXTS["unfinished"], False).passed
+
+    text3 = (
+        "根据现有检索结果，未直接查到关于醉驾量刑的具体刑法条文。"
+        "上述《刑法》条文未在本次检索结果中出现，说明当前工具返回材料不完整。"
+    )
+    assert check_refusal(text3, False).passed
+
 
 # ---------------------------------------------------------------------------
 # 问题覆盖（多问 / 复杂问）

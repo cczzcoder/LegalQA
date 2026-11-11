@@ -53,6 +53,13 @@ _FALLBACK_REPLY = (
     "比如说明事情经过、涉及哪一方、您希望达成什么结果。"
 )
 
+# 预算耗尽时，模型偶尔会把最后一次作答用来写「我还要再查一下」。
+# 这不是回答，直接换成 unfinished 文案，避免用户收到半句话。
+_UNFINISHED_MARKERS = (
+    "还需检索", "需要检索", "还需查询", "需要查询", "补充检索", "再检索",
+    "继续检索", "接下来检索", "我先查", "我来查", "先查一下",
+)
+
 
 # ---------------------------------------------------------------------------
 # 工具调用签名（用于去重）
@@ -182,12 +189,22 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
 
         tool_calls = list(getattr(response, "tool_calls", None) or [])
 
-        # 超预算还硬编 tool_calls → 手动剥离（终止保证第 2 重）
-        if over_budget and tool_calls:
-            response = response.model_copy(
-                update={"tool_calls": [], "invalid_tool_calls": []}
-            )
-            tool_calls = []
+        # 超预算还硬编 tool_calls → 手动剥离（终止保证第 2 重）。
+        # 如果剩下的正文只是「还需检索……」这类计划，换成 unfinished 文案：
+        # 用户要的是结论，不是模型下一步打算做什么。
+        unfinished_fallback = False
+        if over_budget:
+            body = response.content if isinstance(response.content, str) else ""
+            if tool_calls:
+                response = response.model_copy(
+                    update={"tool_calls": [], "invalid_tool_calls": []}
+                )
+                tool_calls = []
+            if not body.strip() or any(marker in body for marker in _UNFINISHED_MARKERS):
+                response = response.model_copy(
+                    update={"content": config.FALLBACK_TEXTS["unfinished"]}
+                )
+                unfinished_fallback = True
 
         content = response.content if isinstance(response.content, str) else ""
         stop_reason = "tool_call" if tool_calls else "no_tool_call"
@@ -204,7 +221,9 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
             "messages": [response],
             "iteration_count": iteration,
             "agent_stop_reason": stop_reason,
-            "degraded": stop_reason == "empty_output" or state.get("degraded", False),
+            "degraded": stop_reason == "empty_output"
+            or unfinished_fallback
+            or state.get("degraded", False),
             "trace": trace,
             "last_node": "agent",
         }
