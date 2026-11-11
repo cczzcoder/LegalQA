@@ -113,6 +113,49 @@ def test_orphan_tool_message_is_removed() -> None:
     assert validate_window(out["llm_messages"]) == []
 
 
+def test_current_turn_tool_result_survives_token_pressure() -> None:
+    """长历史 + 长工具结果时，本轮检索结果不能被整对裁掉。
+
+    实测事故：压缩把「AI(tool_calls) + ToolMessage」裁掉，模型手里只剩用户问题，
+    明明检索到高相关法条，还是回「现有资料未涵盖」。
+    """
+    messages = [
+        *rounds(8, chars=300),
+        HumanMessage(id="h-now", content="我工伤了，能拿哪些待遇？" + "啊" * 200),
+        AIMessage(
+            id="a-now",
+            content="",
+            tool_calls=[{"id": "c1", "name": "read_law", "args": {"query": "工伤待遇"}}],
+        ),
+        ToolMessage(
+            id="t-now",
+            content="【检索结果】" + "法条正文" * 600,
+            tool_call_id="c1",
+        ),
+    ]
+    out = ctx.context_compress_node(LegalState(messages=messages))
+
+    tool_messages = [m for m in out["llm_messages"] if isinstance(m, ToolMessage)]
+    assert tool_messages, "本轮工具结果必须保留，不能整对裁掉"
+    assert "材料过长已截断" in str(tool_messages[0].content)
+    assert validate_window(out["llm_messages"]) == []
+
+
+def test_current_turn_tool_result_fits_without_truncation() -> None:
+    messages = [
+        HumanMessage(id="h1", content="问题"),
+        AIMessage(
+            id="a1",
+            content="",
+            tool_calls=[{"id": "c1", "name": "read_law", "args": {"query": "x"}}],
+        ),
+        ToolMessage(id="t1", content="很短的法条", tool_call_id="c1"),
+    ]
+    out = ctx.context_compress_node(LegalState(messages=messages))
+    tool_messages = [m for m in out["llm_messages"] if isinstance(m, ToolMessage)]
+    assert tool_messages and tool_messages[0].content == "很短的法条"
+
+
 def test_valid_tool_pair_is_kept() -> None:
     messages = [
         HumanMessage(id="h1", content="问题"),

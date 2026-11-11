@@ -227,6 +227,15 @@ def test_format_context_high_score_has_no_hint() -> None:
     assert "相关度偏低" not in format_context(result)
 
 
+def test_format_context_requires_partial_answer() -> None:
+    """材料部分相关时必须先作答，不能因为答不全就整段拒答。"""
+    text = format_context(ToolResult(docs=[DOCS[0]], score=0.5))
+    assert "只要上述条文中有一条与用户问题相关" in text
+    assert "即使只能回答其中一部分" in text
+    assert "不得因为无法完整回答全部问题就整段拒答" in text
+    assert "不要直接拒答" in text
+
+
 def test_format_context_empty() -> None:
     text = format_context(ToolResult())
     assert "未检索到相关法条" in text

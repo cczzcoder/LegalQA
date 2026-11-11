@@ -131,6 +131,7 @@ def main() -> int:
                         help="auto=跟随 .env（必须和建索引时一致，否则检索全 0）")
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 条")
     parser.add_argument("--category", default="", help="只跑某一类")
+    parser.add_argument("--ids", default="", help="只跑指定用例 id，逗号分隔（定向回归用）")
     parser.add_argument("--json", default="", help="把明细写到这个文件")
     parser.add_argument("--rerank", action="store_true", help="开启 LLM 重排")
     parser.add_argument("--rewrite", action="store_true", help="开启检索前 LLM 改写")
@@ -149,6 +150,9 @@ def main() -> int:
     cases = load_cases(ROOT / args.cases)
     if args.category:
         cases = [c for c in cases if c.get("category") == args.category]
+    if args.ids:
+        wanted = {item.strip() for item in args.ids.split(",") if item.strip()}
+        cases = [c for c in cases if c.get("id") in wanted]
     if args.limit:
         cases = cases[: args.limit]
     if not cases:

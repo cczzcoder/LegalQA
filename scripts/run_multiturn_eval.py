@@ -130,12 +130,16 @@ def main() -> int:
     parser.add_argument("--index", default="data/index/all")
     parser.add_argument("--embedder", default="auto")
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--ids", default="", help="只跑指定对话 id，逗号分隔（定向回归用）")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--json", default="")
     args = parser.parse_args()
 
     load_dotenv()
     cases = load_cases(ROOT / args.cases)
+    if args.ids:
+        wanted = {item.strip() for item in args.ids.split(",") if item.strip()}
+        cases = [c for c in cases if c.get("id") in wanted]
     if args.limit:
         cases = cases[: args.limit]
     if not cases:

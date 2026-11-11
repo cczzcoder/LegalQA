@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.messages import trim_messages
 from langchain_core.messages.utils import count_tokens_approximately
 
@@ -59,6 +59,44 @@ def estimate_tokens(messages: list[AnyMessage]) -> int:
 
 def _system_only() -> list[AnyMessage]:
     return [SystemMessage(content=config.SYSTEM_PROMPT)]
+
+
+_TRUNCATED_TOOL_MARK = "\n……（材料过长已截断，请基于以上内容作答）"
+
+
+def _truncate_tool_messages(
+    messages: list[AnyMessage], budget_tokens: int
+) -> list[AnyMessage]:
+    """把本轮的工具消息截短到预算内，**但绝不整条丢掉**。
+
+    压缩曾经把「AI(tool_calls) + ToolMessage」整对裁掉，模型手里只剩用户问题，
+    于是明明检索到了高相关法条，还是回「现有资料未涵盖」。本轮检索结果是
+    回答的唯一事实来源，只能在长度上让步，不能在存在性上让步。
+    """
+    items = list(messages)
+    if not items or estimate_tokens(items) <= budget_tokens:
+        return items
+
+    tool_positions = [i for i, m in enumerate(items) if isinstance(m, ToolMessage)]
+    if not tool_positions:
+        return items
+
+    tool_set = set(tool_positions)
+    overhead = sum(
+        len(str(m.content)) for i, m in enumerate(items) if i not in tool_set
+    )
+    # 0.85 是安全系数：token 估算是近似值，宁可多截一点也不要再超预算。
+    available = int(budget_tokens * config.CHARS_PER_TOKEN * 0.85) - overhead
+    available -= len(tool_positions) * len(_TRUNCATED_TOOL_MARK)
+    per_message = max(200, available // len(tool_positions))
+
+    for index in tool_positions:
+        content = str(items[index].content)
+        if len(content) > per_message:
+            items[index] = items[index].model_copy(
+                update={"content": content[:per_message] + _TRUNCATED_TOOL_MARK}
+            )
+    return items
 
 
 def _build(
@@ -116,47 +154,72 @@ def _compress(state: LegalState, llm: Any = None) -> dict[str, Any]:
     current = last_human(body)
     current_id = getattr(current, "id", None) if current is not None else None
 
-    # ---- 约束一：轮次上限（先切片，避免对超长历史做全量估算）----
-    capped = (
-        body[-config.MAX_BODY_MESSAGES:]
-        if len(body) > config.MAX_BODY_MESSAGES
-        else body
-    )
-
-    # ---- 约束二：token 上限（唯一裁剪点）----
-    trimmed: list[AnyMessage]
-    try:
-        trimmed = list(
-            trim_messages(
-                capped,
-                max_tokens=config.MAX_PROMPT_TOKENS,
-                token_counter=estimate_tokens,
-                strategy="last",
-                include_system=False,      # system 已外置，不参与裁剪
-                allow_partial=False,       # 不切断单条消息
-                start_on="human",          # 窗口从轮次边界开始
-            )
+    # ---- 本轮消息与历史分开处理 ----
+    # 本轮 = 最后一条用户提问及其后面的 AI/ToolMessage。它是回答的唯一事实来源，
+    # 压缩只能裁历史，不能把它整对裁掉。
+    if current is None:
+        current_index = len(body)
+    else:
+        current_index = next(
+            (i for i, message in enumerate(body) if message is current), len(body)
         )
-    except Exception as exc:               # L2：裁剪本身失败
-        trimmed = list(capped[-config.TRIM_FALLBACK_BODY:])
-        base["error"] = f"trim_failed: {type(exc).__name__}"
+    older = body[:current_index]
+    current_turn = body[current_index:]
+
+    system_tokens = estimate_tokens(_system_only())
+    current_budget = max(config.MAX_PROMPT_TOKENS - system_tokens - 100, 400)
+    current_turn = _truncate_tool_messages(list(current_turn), current_budget)
+
+    # ---- 约束一：历史轮次上限（本轮不参与这个上限的丢弃）----
+    older_cap = max(config.MAX_BODY_MESSAGES - len(current_turn), 0)
+    if older_cap <= 0:
+        older_capped: list[AnyMessage] = []
+    elif len(older) > older_cap:
+        older_capped = older[-older_cap:]
+    else:
+        older_capped = list(older)
+
+    # ---- 约束二：只对历史做 token 裁剪，本轮单独控预算 ----
+    remaining = max(
+        config.MAX_PROMPT_TOKENS - system_tokens - estimate_tokens(current_turn), 0
+    )
+    trimmed_older: list[AnyMessage] = []
+    if older_capped and remaining > 0:
+        try:
+            trimmed_older = list(
+                trim_messages(
+                    older_capped,
+                    max_tokens=remaining,
+                    token_counter=estimate_tokens,
+                    strategy="last",
+                    include_system=False,      # system 已外置，不参与裁剪
+                    allow_partial=False,       # 不切断单条消息
+                    start_on="human",          # 窗口从轮次边界开始
+                )
+            )
+        except Exception as exc:               # L2：裁剪本身失败
+            trimmed_older = list(older_capped[-config.TRIM_FALLBACK_BODY:])
+            base["error"] = f"trim_failed: {type(exc).__name__}"
 
     # ---- 配对修复 + 当前提问保护 ----
-    trimmed = repair_tool_pairs(trimmed)
-    trimmed = restore_current_query(trimmed, body)
+    window_body = repair_tool_pairs([*trimmed_older, *current_turn])
+    window_body = restore_current_query(window_body, body)
 
     # ---- 防线三：自检 ----
-    window, violations = _build(trimmed, current_id)
+    window, violations = _build(window_body, current_id)
 
-    # ---- L3：自检失败 → 只保留 system + 当前提问 ----
+    # ---- L3：自检失败 → 先退到「当前轮 + 工具结果」，再退到「只保留当前提问」----
     if violations:
-        safe_body = [current] if current is not None else []
-        window, again = _build(safe_body, current_id)
-        # 拼接而非覆盖：trim_failed 的信息不能因为后续降级而丢失
         prefix = f"{base['error']}|" if base.get("error") else ""
         base["error"] = prefix + "invalid_window:" + ",".join(violations)
+        safe_body = list(current_turn) if current is not None else []
+        window, again = _build(safe_body, current_id)
         if again:
-            base["error"] += "|fallback:" + ",".join(again)
+            base["error"] += "|fallback_current_turn:" + ",".join(again)
+            safe_body = [current] if current is not None else []
+            window, again = _build(safe_body, current_id)
+            if again:
+                base["error"] += "|fallback_current:" + ",".join(again)
 
     # ---- L4：连提问都没有 → 只给 system，并标记异常 ----
     # 注意：这里刻意**不注入假的 HumanMessage**。往 prompt 里塞一条
@@ -168,8 +231,13 @@ def _compress(state: LegalState, llm: Any = None) -> dict[str, Any]:
     # ---- 滚动摘要：把被裁掉、且还没摘要过的消息压成事实摘要 ----
     summary = str(state.get("conversation_summary") or "")
     summarized_count = int(state.get("summarized_count", 0) or 0)
-    kept_ids = {id(m) for m in window}
-    dropped_messages = [m for m in body if id(m) not in kept_ids]
+
+    def _key(message: AnyMessage) -> tuple[str, Any]:
+        message_id = getattr(message, "id", None)
+        return ("id", message_id) if message_id else ("obj", id(message))
+
+    kept_keys = {_key(m) for m in window}
+    dropped_messages = [m for m in body if _key(m) not in kept_keys]
 
     # 只摘要「新增」被裁的部分，避免每次把同样的早期消息重复喂给模型
     pending = dropped_messages[summarized_count:] if summarized_count <= len(dropped_messages) else []
