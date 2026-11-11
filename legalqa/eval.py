@@ -41,6 +41,7 @@ __all__ = [
     "extract_answer",
     "strip_backfill_appendix",
     "strip_system_notes",
+    "strip_quoted_text",
 ]
 
 # 答案长度合理区间。太短说明敷衍，太长说明没抓住重点。
@@ -160,6 +161,14 @@ def check_length(text: str) -> CheckResult:
     return CheckResult("长度合理", True, f"{length} 字")
 
 
+_QUOTED_TEXT = re.compile(r'“[^”]{0,1000}”')
+
+
+def strip_quoted_text(text: str) -> str:
+    """去掉引号内的法条原文，避免把原文里的「本法第四十七条」当成模型引用。"""
+    return _QUOTED_TEXT.sub("", str(text or ""))
+
+
 def check_traceability(text: str, docs: Sequence[dict[str, Any]]) -> CheckResult:
     """引用的条号是否都能在给定材料里找到。
 
@@ -176,6 +185,7 @@ def check_traceability(text: str, docs: Sequence[dict[str, Any]]) -> CheckResult
         for d in docs
         if isinstance(d.get("article_no"), int) and d.get("law_name")
     }
+    text = strip_quoted_text(text)
     if not allowed_pairs:
         return CheckResult("引用可溯源", True, "无检索材料，跳过")
     allowed_nos = {no for _, no in allowed_pairs}
@@ -223,6 +233,7 @@ def check_hallucination(text: str, index: Any) -> CheckResult:
     if index is None or len(index) == 0:
         return CheckResult("无幻觉条号", True, "无索引，跳过")
 
+    text = strip_quoted_text(text)
     law_names = index.law_names
     fake: dict[int, str] = {}
     for law, number in extract_citations(text, law_names):
@@ -316,6 +327,7 @@ def check_required_citations(
     if not groups:
         return CheckResult("必引法源", True, "未指定")
 
+    text = strip_quoted_text(text)
     cited = extract_citations(text or "")
     satisfied = 0
     missing: list[str] = []
@@ -400,6 +412,7 @@ def check_expected_citation(
     支撑同一结论（如「未签合同双倍工资」可引劳动合同法 82 或实施条例 6）。
     只认一条会把正确回答判错——这是合成金标最大的噪声来源。
     """
+    text = strip_quoted_text(text)
     targets: list[tuple[str, int]] = []
     if expected_law and expected_article_no is not None:
         targets.append((str(expected_law), int(expected_article_no)))

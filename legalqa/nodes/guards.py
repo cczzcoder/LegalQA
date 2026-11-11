@@ -362,13 +362,27 @@ def _normalize_partial_disclaimer(
 
 
 def _answer_body_for_citation(text: str) -> str:
-    """去掉回捞附录和引用提示，只留模型正文做引用覆盖检查。"""
+    """去掉回捞附录、引用提示和引号内原文，只留模型自己的引用行为。"""
     body = str(text or "")
     for marker in ("【补充核对】", "【引用提示】"):
         position = body.find(marker)
         if position >= 0:
             body = body[:position]
-    return body
+    return re.sub(r'“[^”]{0,1000}”', "", body)
+
+
+def _brief_matches_core(brief: dict[str, Any], core: Any) -> bool:
+    law = str(brief.get("law_name", ""))
+    number = brief.get("article_no")
+    if not law or not isinstance(number, int):
+        return False
+    return any(
+        isinstance(item, (list, tuple))
+        and len(item) == 2
+        and item[1] == number
+        and same_law(law, str(item[0]))
+        for item in (core or [])
+    )
 
 
 def _repair_facets(
@@ -401,19 +415,34 @@ def _repair_facets(
     if not missing:
         return result
 
-    # 缺面定向补检索：只对完全没有命中材料的方面，最多 3 次。
+    # 缺面定向补检索：核心方面优先用 core_query；最多 3 次。
     targeted = 0
     for item in missing:
         facet_index = int(item["index"])
-        if any(
-            attempt.get("facet") == facet_index and attempt.get("hit")
-            for attempt in attempts
-        ):
-            continue
-        if read_tool is None or targeted >= 3:
-            continue
         facet = facets[facet_index - 1]
-        query = str(facet.get("query") or facet.get("text") or "")
+        core = facet.get("core") or []
+        hit_attempts = [
+            attempt
+            for attempt in attempts
+            if attempt.get("facet") == facet_index and attempt.get("hit")
+        ]
+        core_covered = bool(core) and any(
+            _brief_matches_core(brief, core)
+            for attempt in hit_attempts
+            for brief in (attempt.get("docs") or [])
+        )
+        needs_retrieval = (
+            (bool(core) and not core_covered)
+            or (not core and not hit_attempts)
+        )
+        if not needs_retrieval or read_tool is None or targeted >= 3:
+            continue
+        query = str(
+            (facet.get("core_query") if core else "")
+            or facet.get("query")
+            or facet.get("text")
+            or ""
+        )
         if not query:
             continue
         try:
@@ -441,12 +470,16 @@ def _repair_facets(
     docs_by_facet: dict[int, list[dict[str, Any]]] = {}
     for item in missing:
         facet_index = int(item["index"])
+        facet = facets[facet_index - 1]
+        core = facet.get("core") or []
         docs: list[dict[str, Any]] = []
         seen: set[tuple[str, int]] = set()
         for attempt in attempts:
             if attempt.get("facet") != facet_index or not attempt.get("hit"):
                 continue
             for brief in attempt.get("docs") or []:
+                if core and not _brief_matches_core(brief, core):
+                    continue
                 law = str(brief.get("law_name", ""))
                 number = brief.get("article_no")
                 if not law or not isinstance(number, int):
@@ -464,6 +497,7 @@ def _repair_facets(
                     continue
                 docs.append(
                     {
+                        **full,
                         "law_name": law,
                         "article_no": number,
                         "article_label": full.get("article_label")
@@ -500,7 +534,32 @@ def _repair_facets(
     updated = target.model_copy(
         update={"content": str(target.content) + "\n\n" + appendix}
     )
-    return {**result, "messages": [updated]}
+
+    # 补引用的条文必须并进 retrieved_docs，否则评测/引用侧栏会把它判成未溯源。
+    repaired_docs: list[dict[str, Any]] = []
+    for index, citations in accepted.items():
+        for citation in citations:
+            for doc in docs_by_facet.get(index, []):
+                if doc.get("article_no") != citation["article_no"]:
+                    continue
+                if not same_law(citation["law_name"], doc.get("law_name", "")):
+                    continue
+                repaired_docs.append({**doc, "retrieval_source": "repair"})
+                break
+    merged = list(
+        result.get("retrieved_docs")
+        or state.get("retrieved_docs")
+        or []
+    )
+    seen_ids = {str(doc.get("id", "")) for doc in merged if doc.get("id")}
+    for doc in repaired_docs:
+        key = str(doc.get("id", ""))
+        if key and key in seen_ids:
+            continue
+        if key:
+            seen_ids.add(key)
+        merged.append(doc)
+    return {**result, "messages": [updated], "retrieved_docs": merged}
 
 
 def _apply_facet_gate(

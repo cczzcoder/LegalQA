@@ -212,12 +212,115 @@ _ISSUE_RULES: tuple[tuple[tuple[str, ...], dict[str, str]], ...] = (
 )
 
 
+_CORE_SOURCES: dict[str, tuple[tuple[str, int], ...]] = {
+    "用工身份/劳动关系确认与责任主体": (
+        ("关于确立劳动关系有关事项的通知", 1),
+        ("人力资源社会保障部关于执行《工伤保险条例》若干问题的意见（三）", 10),
+        ("最高人民法院关于审理工伤保险行政案件若干问题的规定", 3),
+    ),
+    "居家办公工伤": (
+        ("人力资源社会保障部关于执行《工伤保险条例》若干问题的意见（三）", 9),
+    ),
+    "工伤认定与待遇": (
+        ("工伤保险条例", 14),
+    ),
+    "加班认定": (
+        ("中华人民共和国劳动合同法", 31),
+        ("中华人民共和国劳动法", 41),
+    ),
+    "举证责任": (
+        ("最高人民法院关于审理劳动争议案件适用法律问题的解释（一）", 42),
+        ("中华人民共和国劳动争议调解仲裁法", 6),
+        ("工伤保险条例", 19),
+    ),
+    "未签合同二倍工资": (
+        ("中华人民共和国劳动合同法", 82),
+    ),
+    "违法解除劳动合同": (
+        ("中华人民共和国劳动合同法", 87),
+    ),
+    "经济补偿": (
+        ("中华人民共和国劳动合同法", 46),
+        ("中华人民共和国劳动合同法", 47),
+    ),
+    "转移夫妻共同财产": (("中华人民共和国民法典", 1092),),
+    "离婚财产分割": (
+        ("中华人民共和国民法典", 1087),
+        ("中华人民共和国民法典", 1066),
+    ),
+    "名誉权侵害": (
+        ("中华人民共和国民法典", 1024),
+    ),
+    "竞业限制": (
+        ("中华人民共和国劳动合同法", 23),
+        ("中华人民共和国劳动合同法", 24),
+        ("最高人民法院关于审理劳动争议案件适用法律问题的解释（一）", 36),
+        ("最高人民法院关于审理劳动争议案件适用法律问题的解释（一）", 38),
+    ),
+    "子女抚养": (("中华人民共和国民法典", 1084),),
+    "商标侵权": (
+        ("中华人民共和国商标法", 72),
+        ("中华人民共和国商标法", 77),
+    ),
+    "高空抛物": (
+        ("中华人民共和国民法典", 1254),
+        ("中华人民共和国民法典", 1198),
+    ),
+    "社会保险": (
+        ("中华人民共和国劳动法", 72),
+        ("工伤保险条例", 62),
+        ("中华人民共和国劳动合同法", 38),
+    ),
+    "时效与程序前提": (
+        ("中华人民共和国劳动争议调解仲裁法", 27),
+        ("中华人民共和国劳动争议调解仲裁法", 5),
+    ),
+    "合同效力前提": (
+        ("中华人民共和国民法典", 143),
+        ("中华人民共和国民法典", 153),
+        ("中华人民共和国民法典", 154),
+    ),
+}
+
+_CORE_QUERIES: dict[str, str] = {
+    "用工身份/劳动关系确认与责任主体": "确认劳动关系 三要件 用工主体责任",
+    "居家办公工伤": "居家办公 工作场所 工作原因 工伤认定 意见三第九条",
+    "工伤认定与待遇": "工伤认定 工作时间 工作场所 工作原因 第十四条",
+    "加班认定": "加班 用人单位安排 追认 劳动合同法第三十一条 劳动法第四十一条",
+    "举证责任": "加班费 工伤 举证责任 用人单位掌握证据",
+    "未签合同二倍工资": "未签书面劳动合同 二倍工资 第八十二条",
+    "违法解除劳动合同": "违法解除劳动合同 赔偿金 第八十七条",
+    "经济补偿": "经济补偿 第四十六条 第四十七条 工作年限",
+    "转移夫妻共同财产": "离婚 转移夫妻共同财产 少分 不分 第一千零九十二条",
+    "离婚财产分割": "离婚 夫妻共同财产 分割 第一千零八十七条",
+    "名誉权侵害": "名誉权 诽谤 侮辱 第一千零二十四条",
+    "竞业限制": "竞业限制 经济补偿 违约金 第二十三条",
+    "子女抚养": "子女抚养权 最有利于未成年子女 第一千零八十四条",
+    "商标侵权": "商标侵权 侵犯注册商标专用权 赔偿 第七十七条",
+    "高空抛物": "高空抛物 建筑物使用人 物业安全保障 第一千二百五十四条",
+    "社会保险": "社会保险 补缴 工伤保险待遇 第六十二条",
+    "时效与程序前提": "劳动争议 仲裁时效 一年 第二十七条",
+    "合同效力前提": "合同效力 无效 可撤销 第一百五十三条",
+}
+
+
+def _with_core(facet: dict[str, Any]) -> dict[str, Any]:
+    item = dict(facet)
+    core = _CORE_SOURCES.get(str(item.get("text", "")))
+    if core:
+        item["core"] = [list(pair) for pair in core]
+        item["core_query"] = _CORE_QUERIES.get(
+            str(item.get("text", "")), item.get("query", "")
+        )
+    return item
+
+
 def detect_issue_facets(
     query: str, limit: int = _MAX_FACETS
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """按法律问题族抽面。命中至少两个才返回，否则交给确定性切分/LLM。"""
     text = str(query or "")
-    facets: list[dict[str, str]] = []
+    facets: list[dict[str, Any]] = []
     seen: set[str] = set()
     for markers, facet in _ISSUE_RULES:
         if not any(marker in text for marker in markers):
@@ -225,7 +328,7 @@ def detect_issue_facets(
         if facet["text"] in seen:
             continue
         seen.add(facet["text"])
-        facets.append(dict(facet))
+        facets.append(_with_core(facet))
         if len(facets) >= limit:
             break
     return facets if len(facets) >= 2 else []
@@ -331,7 +434,7 @@ def add_precondition_facets(
         )
         if focused:
             continue
-        result.append(dict(facet))
+        result.append(_with_core(facet))
         if len(result) >= limit:
             break
     return result[:limit]
@@ -350,6 +453,35 @@ def facet_citation_evidence(
     cited = extract_citations(answer or "")
     missing: list[dict[str, Any]] = []
     for index, facet in enumerate(facets, start=1):
+        core = facet.get("core") or []
+        if core:
+            core_used = any(
+                cited_number == number
+                and (
+                    cited_law is None
+                    or same_law(cited_law, str(law))
+                )
+                for cited_law, cited_number in cited
+                for law, number in core
+                if isinstance(number, int)
+            )
+            if core_used:
+                continue
+            relevant = [
+                item
+                for item in attempts
+                if item.get("facet") == index and item.get("hit")
+            ]
+            reason = "未检索到核心法源" if not relevant else "未引用核心法源"
+            missing.append(
+                {
+                    "index": index,
+                    "text": str(facet.get("text") or f"第{index}个方面"),
+                    "reason": reason,
+                }
+            )
+            continue
+
         relevant = [
             item
             for item in attempts

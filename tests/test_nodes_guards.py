@@ -323,7 +323,13 @@ def _repair_state() -> LegalState:
             HumanMessage(id="h1", content="复合问题"),
             AIMessage(id="a1", content=f"答案。\n\n{DISCLAIMER}"),
         ],
-        facets=[{"text": "经济补偿", "query": "经济补偿"}],
+        facets=[
+            {
+                "text": "经济补偿",
+                "query": "经济补偿",
+                "core": [["中华人民共和国劳动合同法", 46]],
+            }
+        ],
         facet_attempts=[
             {
                 "facet": 1,

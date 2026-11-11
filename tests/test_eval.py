@@ -280,6 +280,18 @@ def test_traceability_accepts_matching_pair() -> None:
     assert check_traceability("依据《劳动合同法》第三十八条。", docs).passed is True
 
 
+def test_traceability_ignores_cross_reference_inside_quote() -> None:
+    """引号内是法条原文，里面的「本法第四十七条」不是模型引的条号。"""
+    from legalqa.eval import check_traceability
+
+    docs = [{"law_name": "中华人民共和国劳动合同法", "article_no": 87}]
+    text = (
+        "依据《劳动合同法》第八十七条：“用人单位违反本法规定解除或者终止劳动合同的，"
+        "应当依照本法第四十七条规定的经济补偿标准的二倍向劳动者支付赔偿金。”"
+    )
+    assert check_traceability(text, docs).passed
+
+
 def test_strip_backfill_appendix_removes_quoted_statute() -> None:
     """附录里是法条原文，其中的交叉引用不算模型的引用行为。"""
     from legalqa.eval import strip_backfill_appendix

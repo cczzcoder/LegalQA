@@ -135,6 +135,37 @@ def test_facet_citation_evidence_detects_unsearched_facet() -> None:
     assert missing[0]["reason"] == "未检索"
 
 
+def test_facet_citation_evidence_requires_core_source() -> None:
+    facets = [
+        {
+            "text": "身份",
+            "core": [["关于确立劳动关系有关事项的通知", 1]],
+        }
+    ]
+    attempts = [
+        {
+            "facet": 1,
+            "hit": True,
+            "docs": [
+                {
+                    "law_name": "中华人民共和国劳动争议调解仲裁法",
+                    "article_no": 6,
+                }
+            ],
+        }
+    ]
+    missing = facet_citation_evidence(
+        facets, attempts, "依据《劳动争议调解仲裁法》第六条。"
+    )
+    assert missing[0]["reason"] == "未引用核心法源"
+
+    assert facet_citation_evidence(
+        facets,
+        attempts,
+        "依据《关于确立劳动关系有关事项的通知》第一条。",
+    ) == []
+
+
 def test_effective_tool_budget() -> None:
     assert effective_tool_budget([]) == config.MAX_TOOL_CALLS
     assert effective_tool_budget([{}, {}]) == 2

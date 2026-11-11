@@ -32,7 +32,7 @@ def _seed_facets(seed: Sequence[str]) -> list[dict[str, str]]:
     return [{"text": item, "query": item} for item in seed]
 
 
-def _plan_facets(llm: Any, query: str) -> tuple[list[dict[str, str]], str]:
+def _plan_facets(llm: Any, query: str) -> tuple[list[dict[str, Any]], str]:
     # 规则优先：已知法律问题族直接拆成稳定的方面，不调 LLM。
     rule_facets = detect_issue_facets(query)
     if len(rule_facets) >= 2:
