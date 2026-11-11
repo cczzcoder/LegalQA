@@ -144,7 +144,7 @@ def build_graph(
     graph.add_node("plan", make_plan_node(llm))
     # 传 llm 才启用滚动摘要：窗口之外的历史压成事实摘要，避免 6 轮后失忆
     graph.add_node("context_compress", make_context_compress_node(llm))
-    graph.add_node("output_guard", make_output_guard_node(index))
+    graph.add_node("output_guard", make_output_guard_node(index, llm, read_tool))
     graph.add_node("static_fallback", static_fallback_node)
     graph.add_node("save_state", save_state_node)
 

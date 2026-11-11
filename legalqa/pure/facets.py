@@ -15,6 +15,7 @@ from legalqa.pure.retrieval import extract_citations, same_law
 
 __all__ = [
     "split_query",
+    "detect_issue_facets",
     "should_refine_facets",
     "build_facet_prompt",
     "parse_facets",
@@ -22,6 +23,10 @@ __all__ = [
     "match_facet",
     "facet_evidence",
     "facet_citation_evidence",
+    "build_repair_prompt",
+    "parse_repair",
+    "validate_repair",
+    "render_repair_appendix",
     "effective_tool_budget",
     "build_facet_checklist",
 ]
@@ -87,6 +92,143 @@ def split_query(query: str, limit: int = _MAX_FACETS) -> list[str]:
     if len(parts) >= 2:
         return parts[:limit]
     return []
+
+
+# 法律问题类型规则：优先于 LLM 拆面，保证同一类问题每次拆出相同的方面。
+# 只做「问题族」粒度，不绑定具体法条；未命中的领域再走 LLM 兜底。
+_ISSUE_RULES: tuple[tuple[tuple[str, ...], dict[str, str]], ...] = (
+    (
+        ("用工身份", "劳动关系", "主体资格", "用工主体责任"),
+        {
+            "text": "用工身份/劳动关系确认与责任主体",
+            "query": "确认劳动关系 用工主体责任 仲裁前置",
+        },
+    ),
+    (
+        ("居家", "在家办公", "远程办公"),
+        {
+            "text": "居家办公工伤",
+            "query": "居家办公 工作场所 工作原因 工伤认定",
+        },
+    ),
+    (
+        ("工伤", "受伤", "事故伤害"),
+        {
+            "text": "工伤认定与待遇",
+            "query": "工伤认定 工作时间 工作场所 工作原因",
+        },
+    ),
+    (
+        ("加班", "延长工作时间", "值班"),
+        {
+            "text": "加班认定",
+            "query": "加班 用人单位安排 追认 劳动者自愿",
+        },
+    ),
+    (
+        ("举证", "证据", "证明责任"),
+        {
+            "text": "举证责任",
+            "query": "举证责任 用人单位掌握证据 不利后果",
+        },
+    ),
+    (
+        ("未签", "没签", "未订立", "没有签订", "双倍工资", "二倍工资"),
+        {
+            "text": "未签合同二倍工资",
+            "query": "未签书面劳动合同 二倍工资",
+        },
+    ),
+    (
+        ("辞退", "违法解除", "解除劳动合同", "开除", "解雇"),
+        {
+            "text": "违法解除劳动合同",
+            "query": "违法解除 赔偿金 二倍",
+        },
+    ),
+    (
+        ("经济补偿", "补偿金"),
+        {
+            "text": "经济补偿",
+            "query": "经济补偿 计算标准 工作年限",
+        },
+    ),
+    (
+        ("转移", "隐匿", "挥霍", "存款"),
+        {
+            "text": "转移夫妻共同财产",
+            "query": "离婚 转移夫妻共同财产 少分 不分",
+        },
+    ),
+    (
+        ("分割", "共同财产", "房产"),
+        {
+            "text": "离婚财产分割",
+            "query": "离婚 夫妻共同财产 分割 照顾子女",
+        },
+    ),
+    (
+        ("造谣", "诽谤", "名誉", "侮辱"),
+        {
+            "text": "名誉权侵害",
+            "query": "名誉权 诽谤 侮辱 网络传播",
+        },
+    ),
+    (
+        ("竞业限制",),
+        {
+            "text": "竞业限制",
+            "query": "竞业限制 经济补偿 违约金",
+        },
+    ),
+    (
+        ("抚养权", "抚养", "子女"),
+        {
+            "text": "子女抚养",
+            "query": "子女抚养权 最有利于未成年子女",
+        },
+    ),
+    (
+        ("商标", "注册商标"),
+        {
+            "text": "商标侵权",
+            "query": "商标侵权 侵犯注册商标专用权 赔偿",
+        },
+    ),
+    (
+        ("高空抛物",),
+        {
+            "text": "高空抛物",
+            "query": "高空抛物 建筑物使用人 物业安全保障",
+        },
+    ),
+    (
+        ("社保", "社会保险"),
+        {
+            "text": "社会保险",
+            "query": "社会保险 补缴 工伤保险待遇",
+        },
+    ),
+)
+
+
+def detect_issue_facets(
+    query: str, limit: int = _MAX_FACETS
+) -> list[dict[str, str]]:
+    """按法律问题族抽面。命中至少两个才返回，否则交给确定性切分/LLM。"""
+    text = str(query or "")
+    facets: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for markers, facet in _ISSUE_RULES:
+        if not any(marker in text for marker in markers):
+            continue
+        if facet["text"] in seen:
+            continue
+        seen.add(facet["text"])
+        facets.append(dict(facet))
+        if len(facets) >= limit:
+            break
+    return facets if len(facets) >= 2 else []
 
 
 def should_refine_facets(query: str, seed: Sequence[str]) -> bool:
@@ -246,6 +388,137 @@ def facet_citation_evidence(
             }
         )
     return missing
+
+
+def build_repair_prompt(
+    missing: Sequence[dict[str, Any]],
+    docs_by_facet: dict[int, Sequence[dict[str, Any]]],
+) -> str:
+    """构造「只选条文 + 只抄原文」的补引 prompt。"""
+    blocks = [
+        "你是法律引用核对器。下面每个方面列出本轮检索到的法条。",
+        "只从列出的条文中选择能直接支持该方面的条文；不得引用列表外条文。",
+        "quote 必须逐字来自给出的正文，不要改写、不要拼接；无法支持就 supported=false。",
+        "只输出 JSON，不要解释，不要 Markdown 代码块：",
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"法律全称","article_no":87,"quote":"原文片段"}]}]}',
+        "每个方面最多 2 条；quote 不短于 10 字。",
+    ]
+    for item in missing:
+        index = int(item["index"])
+        blocks.append(f"\n方面 {index}：{item.get('text', '')}")
+        docs = docs_by_facet.get(index) or []
+        if not docs:
+            blocks.append("（本轮未检索到可列出的条文）")
+            continue
+        for doc in docs[:3]:
+            body = " ".join(str(doc.get("text", "")).split())[:500]
+            label = doc.get("article_label") or f"第{doc.get('article_no', '?')}条"
+            blocks.append(
+                f"- 《{doc.get('law_name', '')}》{label}：{body}"
+            )
+    blocks.append("\n输出：")
+    return "\n".join(blocks)
+
+
+def _normalize_quote(text: str) -> str:
+    return re.sub(r"\s+", "", str(text or ""))
+
+
+def parse_repair(raw: str | None) -> dict[int, dict[str, Any]]:
+    """解析补引 JSON。失败返回空 dict。"""
+    text = str(raw or "")
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end <= start:
+        return {}
+    try:
+        payload = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return {}
+    items = payload.get("facets") if isinstance(payload, dict) else payload
+    if not isinstance(items, list):
+        return {}
+
+    parsed: dict[int, dict[str, Any]] = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            index = int(item.get("index"))
+        except (TypeError, ValueError):
+            continue
+        citations = item.get("citations") if isinstance(item.get("citations"), list) else []
+        parsed[index] = {
+            "supported": bool(item.get("supported")),
+            "citations": [c for c in citations if isinstance(c, dict)],
+        }
+    return parsed
+
+
+def validate_repair(
+    payload: dict[int, dict[str, Any]],
+    docs_by_facet: dict[int, Sequence[dict[str, Any]]],
+) -> dict[int, list[dict[str, Any]]]:
+    """只保留「条文在本方面材料里 + quote 是原文子串」的补引。"""
+    accepted: dict[int, list[dict[str, Any]]] = {}
+    for index, item in payload.items():
+        if not item.get("supported"):
+            continue
+        docs = list(docs_by_facet.get(index) or [])
+        seen: set[tuple[str, int]] = set()
+        for citation in item.get("citations") or []:
+            law = str(citation.get("law") or "").strip()
+            number = citation.get("article_no")
+            quote = str(citation.get("quote") or "").strip()
+            if not law or not isinstance(number, int) or len(quote) < 10:
+                continue
+            if (law, number) in seen:
+                continue
+            for doc in docs:
+                if doc.get("article_no") != number:
+                    continue
+                if not same_law(law, str(doc.get("law_name", ""))):
+                    continue
+                body = _normalize_quote(str(doc.get("text", "")))
+                if _normalize_quote(quote) not in body:
+                    continue
+                seen.add((law, number))
+                accepted.setdefault(index, []).append(
+                    {
+                        "law_name": str(doc.get("law_name", "")),
+                        "article_no": number,
+                        "article_label": doc.get("article_label")
+                        or f"第{number}条",
+                        "quote": quote[:200],
+                    }
+                )
+                break
+            if len(accepted.get(index, [])) >= 2:
+                break
+    return accepted
+
+
+def render_repair_appendix(
+    accepted: dict[int, list[dict[str, Any]]],
+    facets: Sequence[dict[str, Any]],
+) -> str:
+    """渲染「补充依据」附录；没有可接受的补引时返回空串。"""
+    if not accepted:
+        return ""
+    lines = ["【补充依据·来自本轮检索材料】"]
+    for index in sorted(accepted):
+        label = (
+            facets[index - 1].get("text", "")
+            if 0 <= index - 1 < len(facets)
+            else f"方面 {index}"
+        )
+        lines.append(f"方面 {index}：{label}")
+        for item in accepted[index]:
+            lines.append(
+                f"- 《{item['law_name']}》{item['article_label']}："
+                f"“{item['quote']}”"
+            )
+    return "\n".join(lines)
 
 
 def _bigrams(text: str) -> set[str]:

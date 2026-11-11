@@ -12,6 +12,10 @@ HARD_QUERY = (
     "线上碎片化指令下的加班，应以“用人单位安排或追认”还是“劳动者自愿”为界限，"
     "举证责任如何分配？"
 )
+UNKNOWN_QUERY = (
+    "公司准备上市，需要满足哪些条件；股权转让要交什么税，"
+    "信息披露有什么要求？请分别说明。"
+)
 
 
 class _FakeLLM:
@@ -70,35 +74,50 @@ def test_plan_ignores_current_query_when_scanning_history() -> None:
 def test_plan_refines_facets_with_llm() -> None:
     llm = _FakeLLM(
         content=(
-            '[{"text":"劳动关系确认","query":"怎么确认劳动关系和用工主体责任"},'
-            '{"text":"居家工伤","query":"居家办公受伤算不算工伤"},'
-            '{"text":"线上加班","query":"线上指令安排加班怎么认定"},'
-            '{"text":"举证责任","query":"加班费和工伤的举证责任怎么分配"}]'
+            '[{"text":"上市条件","query":"公司上市 条件"},'
+            '{"text":"股权转让税务","query":"股权转让 税务 印花税"},'
+            '{"text":"信息披露","query":"上市公司 信息披露 要求"}]'
         )
     )
     state = LegalState(
-        user_query=HARD_QUERY,
-        messages=[HumanMessage(id="h1", content=HARD_QUERY)],
+        user_query=UNKNOWN_QUERY,
+        messages=[HumanMessage(id="h1", content=UNKNOWN_QUERY)],
     )
 
     out = make_plan_node(llm)(state)
 
     assert out["facet_plan_source"] == "llm"
-    assert len(out["facets"]) == 4
-    assert out["facets"][0]["text"] == "劳动关系确认"
+    assert len(out["facets"]) == 3
+    assert out["facets"][0]["text"] == "上市条件"
     assert llm.calls == 1
 
 
 def test_plan_falls_back_when_llm_fails() -> None:
     llm = _FakeLLM(error=RuntimeError("boom"))
     state = LegalState(
-        user_query=HARD_QUERY,
-        messages=[HumanMessage(id="h1", content=HARD_QUERY)],
+        user_query=UNKNOWN_QUERY,
+        messages=[HumanMessage(id="h1", content=UNKNOWN_QUERY)],
     )
 
     out = make_plan_node(llm)(state)
 
     assert out["facet_plan_source"] == "deterministic_fallback"
-    assert len(out["facets"]) == 3
-    assert "居家" in out["facets"][0]["text"]
-    assert any("劳动关系" in facet["text"] for facet in out["facets"])
+    assert len(out["facets"]) == 2
+    assert "上市" in out["facets"][0]["text"]
+
+
+def test_plan_uses_rule_facets_for_known_issues() -> None:
+    state = LegalState(
+        user_query=HARD_QUERY,
+        messages=[HumanMessage(id="h1", content=HARD_QUERY)],
+    )
+
+    out = make_plan_node()(state)
+
+    assert out["facet_plan_source"] == "rules"
+    assert len(out["facets"]) == 5
+    texts = " ".join(facet["text"] for facet in out["facets"])
+    assert "用工身份" in texts
+    assert "居家" in texts
+    assert "加班" in texts
+    assert "举证" in texts

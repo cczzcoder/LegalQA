@@ -307,6 +307,68 @@ def test_output_guard_adds_facet_gap_note() -> None:
     assert out["coverage_gaps"] == ["方面B"]
 
 
+class _RepairLLM:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.calls = 0
+
+    def invoke(self, messages):  # noqa: ANN001
+        self.calls += 1
+        return type("Response", (), {"content": self.content})()
+
+
+def _repair_state() -> LegalState:
+    return LegalState(
+        messages=[
+            HumanMessage(id="h1", content="复合问题"),
+            AIMessage(id="a1", content=f"答案。\n\n{DISCLAIMER}"),
+        ],
+        facets=[{"text": "经济补偿", "query": "经济补偿"}],
+        facet_attempts=[
+            {
+                "facet": 1,
+                "hit": True,
+                "query": "经济补偿",
+                "docs": [
+                    {
+                        "law_name": "中华人民共和国劳动合同法",
+                        "article_no": 46,
+                    }
+                ],
+            }
+        ],
+    )
+
+
+def test_output_guard_repairs_uncited_facet_with_verified_quote() -> None:
+    llm = _RepairLLM(
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"劳动合同法","article_no":46,'
+        '"quote":"用人单位应当向劳动者支付经济补偿的情形包括"}]}]}'
+    )
+    out = output_guard_node(_repair_state(), index=_corpus_index(), llm=llm)
+
+    content = out["messages"][0].content
+    assert "【补充依据·来自本轮检索材料】" in content
+    assert "第四十六条" in content
+    assert "【覆盖提示】" not in content
+    assert out["facet_repair_count"] == 1
+    assert llm.calls == 1
+
+
+def test_output_guard_rejects_invalid_repair_quote() -> None:
+    llm = _RepairLLM(
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"劳动合同法","article_no":46,"quote":"用人单位应当支付三倍赔偿金"}]}]}'
+    )
+    out = output_guard_node(_repair_state(), index=_corpus_index(), llm=llm)
+
+    content = out["messages"][0].content
+    assert "【补充依据" not in content
+    assert "【覆盖提示】" in content
+    assert out["facet_repair_count"] == 1
+
+
 def test_output_guard_without_facets_has_no_gap_note() -> None:
     state = LegalState(
         messages=[

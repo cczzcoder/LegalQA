@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from legalqa import config
 from legalqa.pure.facets import (
+    detect_issue_facets,
     effective_tool_budget,
     facet_citation_evidence,
     facet_evidence,
     match_facet,
     parse_facets,
+    parse_repair,
+    render_repair_appendix,
     should_refine_facets,
     split_query,
+    validate_repair,
 )
 
 
@@ -30,6 +34,30 @@ def test_split_compound_by_semicolon() -> None:
 
 def test_split_short_single_returns_empty() -> None:
     assert split_query("工伤怎么认定？") == []
+
+
+def test_detect_issue_facets_hard_query() -> None:
+    facets = detect_issue_facets(HARD_QUERY)
+    assert len(facets) == 5
+    texts = " ".join(facet["text"] for facet in facets)
+    assert "用工身份" in texts
+    assert "居家" in texts
+    assert "加班" in texts
+    assert "举证" in texts
+
+
+def test_detect_issue_facets_marriage_query() -> None:
+    facets = detect_issue_facets(
+        "离婚时对方转移存款，还在网上造谣我，我能怎么分割财产？"
+    )
+    texts = " ".join(facet["text"] for facet in facets)
+    assert "转移" in texts
+    assert "财产分割" in texts
+    assert "名誉权" in texts
+
+
+def test_detect_issue_facets_single_issue_returns_empty() -> None:
+    assert detect_issue_facets("工伤怎么认定？") == []
 
 
 def test_should_refine_long_compound() -> None:
@@ -111,3 +139,73 @@ def test_effective_tool_budget() -> None:
     assert effective_tool_budget([]) == config.MAX_TOOL_CALLS
     assert effective_tool_budget([{}, {}]) == 2
     assert effective_tool_budget([{}] * 4) == 4
+
+
+def _repair_docs() -> dict[int, list[dict]]:
+    return {
+        1: [
+            {
+                "law_name": "中华人民共和国劳动合同法",
+                "article_no": 87,
+                "article_label": "第八十七条",
+                "text": (
+                    "用人单位违反本法规定解除或者终止劳动合同的，"
+                    "应当依照本法第四十七条规定的经济补偿标准的二倍向劳动者支付赔偿金。"
+                ),
+            }
+        ]
+    }
+
+
+def test_parse_repair_json() -> None:
+    raw = (
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"劳动合同法","article_no":87,"quote":"二倍向劳动者支付赔偿金"}]}]}'
+    )
+    parsed = parse_repair(raw)
+    assert parsed[1]["supported"] is True
+    assert parsed[1]["citations"][0]["article_no"] == 87
+
+
+def test_validate_repair_accepts_verbatim_quote() -> None:
+    payload = parse_repair(
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"劳动合同法","article_no":87,'
+        '"quote":"应当依照本法第四十七条规定的经济补偿标准的二倍向劳动者支付赔偿金"}]}]}'
+    )
+    accepted = validate_repair(payload, _repair_docs())
+    assert accepted[1][0]["article_no"] == 87
+    assert "经济补偿标准" in accepted[1][0]["quote"]
+
+
+def test_validate_repair_rejects_wrong_quote() -> None:
+    payload = parse_repair(
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"劳动合同法","article_no":87,"quote":"用人单位应当支付三倍赔偿金"}]}]}'
+    )
+    assert validate_repair(payload, _repair_docs()) == {}
+
+
+def test_validate_repair_rejects_article_outside_material() -> None:
+    payload = parse_repair(
+        '{"facets":[{"index":1,"supported":true,"citations":'
+        '[{"law":"劳动合同法","article_no":47,"quote":"经济补偿按工作年限计算"}]}]}'
+    )
+    assert validate_repair(payload, _repair_docs()) == {}
+
+
+def test_render_repair_appendix() -> None:
+    accepted = {
+        1: [
+            {
+                "law_name": "中华人民共和国劳动合同法",
+                "article_no": 87,
+                "article_label": "第八十七条",
+                "quote": "二倍向劳动者支付赔偿金",
+            }
+        ]
+    }
+    text = render_repair_appendix(accepted, [{"text": "违法解除赔偿"}])
+    assert "【补充依据" in text
+    assert "方面 1：违法解除赔偿" in text
+    assert "第八十七条" in text

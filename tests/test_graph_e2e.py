@@ -183,14 +183,17 @@ def test_plan_injects_facet_checklist() -> None:
 
     state = run_turn(
         app,
-        "公司拖欠我三个月工资，我能不能解除合同并要求经济补偿；"
-        "公司一直没签书面劳动合同，我能不能主张双倍工资，举证责任又该怎么分配？",
+        "公司准备上市，需要满足哪些条件；股权转让要交什么税，"
+        "信息披露有什么要求？请分别说明。",
     )
 
     assert state.facet_plan_source == "llm"
     assert len(state.facets) == 2
-    prompt = llm.seen_messages[-1]
-    assert any("需要分别检索的方面" in str(m.content) for m in prompt)
+    assert any(
+        "需要分别检索的方面" in str(message.content)
+        for prompt in llm.seen_messages
+        for message in prompt
+    )
 
 
 def test_tool_node_records_facet_attempt() -> None:

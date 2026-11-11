@@ -90,6 +90,7 @@ class LegalState:
     facets: list[dict] = field(default_factory=list)
     facet_plan_source: str = ""     # none / deterministic / llm / deterministic_fallback
     facet_attempts: list[dict] = field(default_factory=list)
+    facet_repair_count: int = 0
     coverage_gaps: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------

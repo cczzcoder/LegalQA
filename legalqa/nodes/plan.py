@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage
 from legalqa.pure.facets import (
     add_precondition_facets,
     build_facet_prompt,
+    detect_issue_facets,
     parse_facets,
     should_refine_facets,
     split_query,
@@ -32,6 +33,11 @@ def _seed_facets(seed: Sequence[str]) -> list[dict[str, str]]:
 
 
 def _plan_facets(llm: Any, query: str) -> tuple[list[dict[str, str]], str]:
+    # 规则优先：已知法律问题族直接拆成稳定的方面，不调 LLM。
+    rule_facets = detect_issue_facets(query)
+    if len(rule_facets) >= 2:
+        return rule_facets, "rules"
+
     seed = split_query(query)
     if not should_refine_facets(query, seed):
         return add_precondition_facets(query, _seed_facets(seed)), (

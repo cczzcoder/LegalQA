@@ -19,7 +19,13 @@ from typing import Any, Sequence
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from legalqa import config
-from legalqa.pure.facets import facet_citation_evidence
+from legalqa.pure.facets import (
+    build_repair_prompt,
+    facet_citation_evidence,
+    parse_repair,
+    render_repair_appendix,
+    validate_repair,
+)
 from legalqa.pure.retrieval import extract_citations, int_to_cn, resolve_law, same_law
 from legalqa.pure.window import last_human
 from legalqa.state import LegalState
@@ -89,6 +95,7 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     "facets": [],
     "facet_plan_source": "",
     "facet_attempts": [],
+    "facet_repair_count": 0,
     "coverage_gaps": [],
     # 压缩视图（每轮重算）
     "llm_messages": [],
@@ -297,7 +304,9 @@ def _merge_docs(
     return merged
 
 
-def make_output_guard_node(index: Any = None):
+def make_output_guard_node(
+    index: Any = None, llm: Any = None, read_tool: Any = None
+):
     """把法条索引注入 OutputGuard，供「引用回捞」使用。
 
     LangGraph 节点签名只接受 state，索引必须走闭包注入 —— 与
@@ -305,14 +314,20 @@ def make_output_guard_node(index: Any = None):
     """
 
     def node(state: LegalState) -> dict[str, Any]:
-        return output_guard_node(state, index)
+        return output_guard_node(state, index, llm, read_tool)
 
     return node
 
 
-def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
-    """输出护栏：引用核实 + 免责声明清理 + 分面证据闸门。"""
+def output_guard_node(
+    state: LegalState,
+    index: Any = None,
+    llm: Any = None,
+    read_tool: Any = None,
+) -> dict[str, Any]:
+    """输出护栏：引用核实 + 免责声明清理 + 抽取式补引 + 分面证据闸门。"""
     result = _normalize_partial_disclaimer(_output_guard_core(state, index), state)
+    result = _repair_facets(result, state, llm, read_tool, index)
     return _apply_facet_gate(result, state)
 
 
@@ -356,6 +371,138 @@ def _answer_body_for_citation(text: str) -> str:
     return body
 
 
+def _repair_facets(
+    result: dict[str, Any],
+    state: LegalState,
+    llm: Any,
+    read_tool: Any,
+    index: Any,
+) -> dict[str, Any]:
+    """抽取式补引：只从本轮材料里选条文 + 逐字校验 quote，不生成新分析。
+
+    只做一次；校验不通过就什么都不补，交给后面的证据闸门显式标注。
+    """
+    facets = list(state.get("facets") or [])
+    if (
+        not facets
+        or llm is None
+        or not hasattr(llm, "invoke")
+        or int(state.get("facet_repair_count", 0) or 0) >= 1
+    ):
+        return result
+
+    target = _final_ai_message(result, state)
+    if target is None:
+        return result
+
+    attempts = list(state.get("facet_attempts") or [])
+    body = _answer_body_for_citation(str(target.content))
+    missing = facet_citation_evidence(facets, attempts, body)
+    if not missing:
+        return result
+
+    # 缺面定向补检索：只对完全没有命中材料的方面，最多 3 次。
+    targeted = 0
+    for item in missing:
+        facet_index = int(item["index"])
+        if any(
+            attempt.get("facet") == facet_index and attempt.get("hit")
+            for attempt in attempts
+        ):
+            continue
+        if read_tool is None or targeted >= 3:
+            continue
+        facet = facets[facet_index - 1]
+        query = str(facet.get("query") or facet.get("text") or "")
+        if not query:
+            continue
+        try:
+            tool_result = read_tool.run(query)
+        except Exception:                 # 补检索失败不影响主链路
+            continue
+        targeted += 1
+        attempts.append(
+            {
+                "facet": facet_index,
+                "query": query,
+                "hit": tool_result.hit,
+                "score": round(tool_result.score, 4),
+                "docs": [
+                    {
+                        "law_name": str(doc.get("law_name", "")),
+                        "article_no": doc.get("article_no"),
+                    }
+                    for doc in tool_result.docs
+                ],
+                "repair": True,
+            }
+        )
+
+    docs_by_facet: dict[int, list[dict[str, Any]]] = {}
+    for item in missing:
+        facet_index = int(item["index"])
+        docs: list[dict[str, Any]] = []
+        seen: set[tuple[str, int]] = set()
+        for attempt in attempts:
+            if attempt.get("facet") != facet_index or not attempt.get("hit"):
+                continue
+            for brief in attempt.get("docs") or []:
+                law = str(brief.get("law_name", ""))
+                number = brief.get("article_no")
+                if not law or not isinstance(number, int):
+                    continue
+                key = (law, number)
+                if key in seen:
+                    continue
+                seen.add(key)
+                full = (
+                    index.by_article(number, law)
+                    if index is not None
+                    else None
+                )
+                if full is None:
+                    continue
+                docs.append(
+                    {
+                        "law_name": law,
+                        "article_no": number,
+                        "article_label": full.get("article_label")
+                        or f"第{number}条",
+                        "text": str(full.get("text", "")),
+                    }
+                )
+        if docs:
+            docs_by_facet[facet_index] = docs
+
+    result = {
+        **result,
+        "facet_attempts": attempts,
+        "facet_repair_count": 1,
+    }
+    if not docs_by_facet:
+        return result
+
+    try:
+        prompt = build_repair_prompt(missing, docs_by_facet)
+        response = llm.invoke([HumanMessage(content=prompt)])
+        raw = (
+            response.content
+            if isinstance(response.content, str)
+            else str(response.content or "")
+        )
+        accepted = validate_repair(parse_repair(raw), docs_by_facet)
+    except Exception:                     # 补引失败就退回缺口提示
+        return result
+
+    appendix = render_repair_appendix(accepted, facets)
+    if not appendix:
+        return result
+    updated = target.model_copy(
+        update={"content": str(target.content) + "\n\n" + appendix}
+    )
+    return {**result, "messages": [updated]}
+
+
 def _apply_facet_gate(
     result: dict[str, Any], state: LegalState
 ) -> dict[str, Any]:
@@ -372,9 +519,12 @@ def _apply_facet_gate(
     if target is None:
         return result
 
+    attempts = result.get("facet_attempts")
+    if attempts is None:
+        attempts = state.get("facet_attempts") or []
     missing = facet_citation_evidence(
         facets,
-        state.get("facet_attempts") or [],
+        attempts,
         _answer_body_for_citation(str(target.content)),
     )
     if not missing:
