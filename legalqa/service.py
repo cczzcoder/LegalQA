@@ -11,7 +11,7 @@ import os
 import threading
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Iterator, Sequence
+from typing import Any, Callable, Iterator, Sequence
 
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -21,6 +21,15 @@ from legalqa.state import coerce_state
 from legalqa.tools.read_tool import ReadTool
 
 __all__ = ["ChatEvent", "LegalQAService", "get_service", "set_service", "reload_service"]
+
+
+def _build_rewriter(llm: Any) -> Callable[..., str | None] | None:
+    """查询改写默认关闭：全量 A/B 无可测收益，且每次检索多一次 LLM 调用。"""
+    if os.environ.get("LEGALQA_REWRITE", "0") != "1":
+        return None
+    from legalqa.tools.rewriter import make_llm_rewriter
+
+    return make_llm_rewriter(llm)
 
 
 @dataclass
@@ -55,13 +64,9 @@ class LegalQAService:
         )
         # 与当前评测基线一致：不做 LLM 重排、不做无条件补召回
         self._mode = mode
-        # 非编号省略指代（「如何做？」）需要把上一轮问题补成独立检索串。
-        # rewriter 内部有 needs_rewrite 门控，只有短追问才会多一次 LLM 调用。
-        self._rewriter = None
-        if os.environ.get("LEGALQA_REWRITE", "1") != "0":
-            from legalqa.tools.rewriter import make_llm_rewriter
-
-            self._rewriter = make_llm_rewriter(self.llm)
+        # 非编号省略指代（「如何做？」）由上一轮问题兜底；查询改写默认关闭，
+        # 需要跨越口语/法条词表鸿沟时设 LEGALQA_REWRITE=1。
+        self._rewriter = _build_rewriter(self.llm)
         self.read_tool = ReadTool(
             self.index, self.embedder, rewriter=self._rewriter
         )
