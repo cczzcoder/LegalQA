@@ -14,6 +14,7 @@ from legalqa.eval import (
     check_keywords,
     check_length,
     check_refusal,
+    check_required_citations,
     check_traceability,
     extract_answer,
     strip_system_notes,
@@ -401,6 +402,27 @@ def test_coverage_without_questions_passes() -> None:
 def test_coverage_without_keywords_is_treated_as_covered() -> None:
     """评测规则没给关键词时宁可漏报，也不能冤枉一条完整回答。"""
     assert check_coverage("任意内容", [{"text": "无关键词"}]).passed
+
+
+def test_required_citations_all_groups_hit() -> None:
+    groups = [
+        [["A法", 1], ["B法", 2]],
+        [["C法", 3]],
+    ]
+    result = check_required_citations("依据《A法》第一条和《C法》第三条。", groups)
+    assert result.passed
+    assert "2/2" in result.detail
+
+
+def test_required_citations_reports_missing_group() -> None:
+    groups = [
+        [["A法", 1], ["B法", 2]],
+        [["C法", 3]],
+    ]
+    result = check_required_citations("依据《A法》第一条。", groups)
+    assert not result.passed
+    assert "1/2" in result.detail
+    assert "C法" in result.detail
 
 
 # ---------------------------------------------------------------------------

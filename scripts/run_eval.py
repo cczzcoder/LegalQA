@@ -42,6 +42,7 @@ from legalqa.eval import (  # noqa: E402
     check_length,
     check_expected_citation,
     check_refusal,
+    check_required_citations,
     check_traceability,
     extract_answer,
     strip_backfill_appendix,
@@ -103,6 +104,11 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         coverage=(
             check_coverage(model_body, case.get("sub_questions"))
             if case.get("sub_questions")
+            else None
+        ),
+        required_citations=(
+            check_required_citations(model_body, case.get("must_cite"))
+            if case.get("must_cite")
             else None
         ),
         output_blocked=bool(state.output_blocked),
@@ -211,6 +217,8 @@ def main() -> int:
             reports.append(report)
             mark = "✓" if report.passed else "✗"
             extra = f" 覆盖{report.coverage.covered}/{report.coverage.total}" if report.coverage else ""
+            if report.required_citations:
+                extra += f" 必引{report.required_citations.detail}"
             print(
                 f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
                 f"轮次{report.iterations} {report.channel or '-':<6} {case['query'][:24]}{extra}"
@@ -223,6 +231,8 @@ def main() -> int:
         for report in reports:
             mark = "✓" if report.passed else "✗"
             extra = f" 覆盖{report.coverage.covered}/{report.coverage.total}" if report.coverage else ""
+            if report.required_citations:
+                extra += f" 必引{report.required_citations.detail}"
             print(
                 f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
                 f"轮次{report.iterations} {report.channel or '-':<6} {report.query[:24]}{extra}"
@@ -268,6 +278,16 @@ def main() -> int:
             f"{avg:>6.1f}%  （完全覆盖 / 平均覆盖率，不参与通过判定）"
         )
 
+    required_reports = [
+        r.required_citations for r in reports if r.required_citations
+    ]
+    if required_reports:
+        fully = sum(1 for item in required_reports if item.passed)
+        print(
+            f"  {'必引法源':<12} {fully:>3}/{len(required_reports):<3} "
+            f"（每个方面至少引到一组法源，不参与通过判定）"
+        )
+
     failures = [r for r in reports if not r.passed]
     if failures:
         print(f"\n失败用例 {len(failures)} 条:")
@@ -306,6 +326,14 @@ def main() -> int:
                         "missing": r.coverage.missing,
                     }
                     if r.coverage
+                    else None
+                ),
+                "required_citations": (
+                    {
+                        "passed": r.required_citations.passed,
+                        "detail": r.required_citations.detail,
+                    }
+                    if r.required_citations
                     else None
                 ),
                 "output_blocked": r.output_blocked,

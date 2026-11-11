@@ -36,6 +36,7 @@ __all__ = [
     "check_keywords",
     "check_expected_citation",
     "check_coverage",
+    "check_required_citations",
     "extract_answer",
     "strip_backfill_appendix",
     "strip_system_notes",
@@ -122,6 +123,9 @@ class CaseReport:
     # 问题覆盖：用户一次提了多个子问题时，回答实际展开了几个。
     # 同样不参与通过判定，先作为独立指标观察。
     coverage: CoverageResult | None = None
+    # 必引法源：复杂问题要求每个方面至少引到一组法源。
+    # 与 coverage 一样先独立观察，不直接参与通过判定。
+    required_citations: CheckResult | None = None
     # 输出护栏的诊断信息。护栏改写/拦截过回答时保留原因，
     # 避免「护栏拦住了错误引用」和「模型本来就没引错」在指标上混在一起。
     output_blocked: bool = False
@@ -295,6 +299,55 @@ def check_coverage(
             continue
         missing.append(str(item.get("text") or f"第{index}个问题"))
     return CoverageResult(total=len(items), covered=covered, missing=missing)
+
+
+def check_required_citations(
+    text: str, groups: Sequence[Sequence[Sequence[Any]]] | None
+) -> CheckResult:
+    """每个方面至少命中一组可接受的法源。
+
+    `groups` 形如 `[[["法A", 1], ["法B", 10]], [["法C", 9]]]`：
+    外层每个元素是一个方面，内层是这组可接受的 (法名, 条号) 备选。
+    用于复合问题：结论覆盖了不等于每个方面都引到了依据。
+    """
+    if not groups:
+        return CheckResult("必引法源", True, "未指定")
+
+    cited = extract_citations(text or "")
+    satisfied = 0
+    missing: list[str] = []
+    for group in groups:
+        ok = False
+        for pair in group:
+            if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+                continue
+            law, number = str(pair[0]), pair[1]
+            if not isinstance(number, int):
+                continue
+            for cited_law, cited_number in cited:
+                if cited_number != number:
+                    continue
+                if cited_law is None and len(group) > 1:
+                    continue
+                if cited_law is None or same_law(cited_law, law):
+                    ok = True
+                    break
+            if ok:
+                break
+        if ok:
+            satisfied += 1
+        else:
+            labels = [
+                f"《{str(law).replace('中华人民共和国', '')}》第{number}条"
+                for law, number in group
+                if isinstance(number, int)
+            ]
+            missing.append(" / ".join(labels))
+
+    detail = f"{satisfied}/{len(groups)}"
+    if missing:
+        detail += "；缺：" + "；".join(missing)
+    return CheckResult("必引法源", satisfied == len(groups), detail)
 
 
 def check_expected_citation(
