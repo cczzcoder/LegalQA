@@ -63,6 +63,10 @@ class LegalState:
     rewrite_applied: bool = False
     rewrite_reason: str = ""
     rewrite_latency_ms: int = 0
+    # 序号追问的确定性解析结果（由 Plan 节点写入）。
+    # 例：「回到最开始第二个问题」→「孩子抚养权归谁」。
+    resolved_query: str = ""
+    ordinal_reason: str = ""
     turn_id: int = 0
 
     # ------------------------------------------------------------------

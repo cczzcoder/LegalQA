@@ -72,6 +72,9 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     "rewrite_applied": False,
     "rewrite_reason": "",
     "rewrite_latency_ms": 0,
+    # 序号追问解析（Plan 节点）
+    "resolved_query": "",
+    "ordinal_reason": "",
     # 检索
     "retrieved_docs": [],
     "rag_score": 0.0,

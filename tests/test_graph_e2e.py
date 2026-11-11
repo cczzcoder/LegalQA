@@ -129,6 +129,71 @@ def test_normal_path_without_tool() -> None:
     assert "output_guard" in state.trace
 
 
+def _long_history_with_first_question() -> list:
+    """构造 13 条历史，把最开始的两问推出 12 条窗口。
+
+    刻意只触发裁剪、不触发滚动摘要（掉 2 条 < SUMMARY_MIN_NEW_MESSAGES），
+    避免摘要调用额外消费 Mock 模型的脚本。
+    """
+    history = [HumanMessage(id="h0", content="离婚时房子怎么分？孩子抚养权归谁？")]
+    for index in range(6):
+        history.append(AIMessage(id=f"seed-a{index}", content="填充回答"))
+        history.append(HumanMessage(id=f"seed-h{index}", content="公司拖欠工资怎么办？"))
+    return history
+
+
+def test_plan_note_injected_for_ordinal_followup() -> None:
+    """序号追问要在 Agent 窗口里带上解析结果，哪怕原问题已滚出窗口。"""
+    llm = MockChatModel(script=[AIMessage(id="a1", content=f"答案。\n\n{DISCLAIMER}")])
+    app = build_graph(llm=llm, read_tool=make_tool())
+
+    state = run_turn(
+        app,
+        "回到最开始第二个问题，那个归谁？",
+        history=_long_history_with_first_question(),
+        turn_id=7,
+    )
+
+    prompt = llm.seen_messages[-1]
+    assert any(
+        "本轮追问" in str(message.content)
+        and "孩子抚养权归谁" in str(message.content)
+        for message in prompt
+    )
+    assert state.resolved_query == "孩子抚养权归谁"
+    assert state.ordinal_reason == "ordinal_first"
+
+
+def test_tool_node_uses_resolved_query_when_model_passes_original() -> None:
+    """模型若原样把序号追问丢给工具，用 Plan 的解析结果兜底。"""
+    seen: list[str] = []
+    tool = make_tool()
+    original_run = tool.run
+
+    def spy(query: str, history=None):
+        seen.append(query)
+        return original_run(query, history)
+
+    tool.run = spy  # type: ignore[method-assign]
+
+    llm = MockChatModel(
+        script=[
+            tool_call_message("c1", query="回到最开始第二个问题，那个归谁？"),
+            AIMessage(id="a2", content=f"答案。\n\n{DISCLAIMER}"),
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=tool)
+
+    run_turn(
+        app,
+        "回到最开始第二个问题，那个归谁？",
+        history=_long_history_with_first_question(),
+        turn_id=7,
+    )
+
+    assert seen == ["孩子抚养权归谁"]
+
+
 def test_input_guard_block_routes_to_save_state() -> None:
     """T-01：拦截后 SaveState 必须兜底保存历史。"""
     llm = MockChatModel()

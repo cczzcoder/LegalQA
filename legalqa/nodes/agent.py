@@ -111,6 +111,17 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
         messages = list(state.get("llm_messages") or [])
         trace = state.with_trace("agent", f"iter={iteration}")
 
+        # 序号追问已由 Plan 节点解析成独立问题。把它放在当前提问之前，
+        # 让模型知道「第二个问题」具体指什么；同时要求检索词带上关键词。
+        resolved = str(state.get("resolved_query") or "").strip()
+        if resolved:
+            messages = insert_before_last_human(
+                messages,
+                "【系统提示】本轮追问中的序号指代已解析为："
+                f"{resolved}。请围绕该问题作答；调用 read_law 时，"
+                "query 必须包含该问题的关键词。",
+            )
+
         if not messages:
             return {
                 "iteration_count": iteration,
@@ -274,6 +285,10 @@ def make_tool_node(
                 continue
 
             query = str(args.get("query", "") or "")
+            # 模型若原样把「第二个问题呢」丢给工具，Plan 的解析结果更可靠。
+            resolved = str(state.get("resolved_query") or "").strip()
+            if resolved and query.strip() == str(state.get("user_query") or "").strip():
+                query = resolved
             try:
                 result = read_tool.run(query, messages)
             except Exception as exc:      # 双保险：工具内部已兜底，这里再兜一层

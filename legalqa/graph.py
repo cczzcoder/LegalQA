@@ -19,6 +19,7 @@ from legalqa.nodes.agent import make_agent_node, make_tool_node
 from legalqa.nodes.context import make_context_compress_node
 from legalqa.nodes.fallback import save_state_node, static_fallback_node
 from legalqa.nodes.guards import input_guard_node, make_output_guard_node
+from legalqa.nodes.plan import make_plan_node
 from legalqa.state import LegalState
 from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool
 
@@ -89,7 +90,7 @@ def make_read_once_node(read_tool: ReadTool):
     """
 
     def read_once_node(state: LegalState) -> dict[str, Any]:
-        query = state.get("user_query") or ""
+        query = state.get("resolved_query") or state.get("user_query") or ""
         result = read_tool.run(query, state.get("messages") or [])
         message = HumanMessage(
             id=f"ctx-{state.get('turn_id', 0)}",
@@ -135,6 +136,9 @@ def build_graph(
 
     graph = StateGraph(LegalState)
     graph.add_node("input_guard", input_guard_node)
+    # 确定性序号解析：读完整历史，把「第 N 个问题」还原成独立问题。
+    # 没有任何序号时原样透传，不影响单问链路。
+    graph.add_node("plan", make_plan_node())
     # 传 llm 才启用滚动摘要：窗口之外的历史压成事实摘要，避免 6 轮后失忆
     graph.add_node("context_compress", make_context_compress_node(llm))
     graph.add_node("output_guard", make_output_guard_node(index))
@@ -155,8 +159,9 @@ def build_graph(
         graph.add_conditional_edges(
             "input_guard",
             route_after_guard,
-            {"agent": "context_compress", "fallback": "static_fallback"},
+            {"agent": "plan", "fallback": "static_fallback"},
         )
+        graph.add_edge("plan", "context_compress")
         graph.add_edge("context_compress", "agent")
         graph.add_conditional_edges(
             "agent",
@@ -184,8 +189,9 @@ def build_graph(
         graph.add_conditional_edges(
             "input_guard",
             route_after_guard,
-            {"agent": "read_once", "fallback": "static_fallback"},
+            {"agent": "plan", "fallback": "static_fallback"},
         )
+        graph.add_edge("plan", "read_once")
         graph.add_edge("read_once", "context_compress")
         graph.add_edge("context_compress", "agent")
         graph.add_conditional_edges(
