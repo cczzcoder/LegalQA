@@ -136,6 +136,8 @@ class CaseReport:
     output_blocked: bool = False
     guard_reason: str = ""
     external_citations: list[str] = field(default_factory=list)
+    external_verified: list[dict[str, Any]] = field(default_factory=list)
+    external_unverified: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:

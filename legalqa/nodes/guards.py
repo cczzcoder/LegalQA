@@ -72,6 +72,8 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     "output_blocked": False,
     "output_reason": "",
     "external_citations": [],
+    "external_verified": [],
+    "external_unverified": [],
     # 降级
     "fallback_text": "",
     "fallback_saved": False,
@@ -303,21 +305,30 @@ def _merge_docs(
         if key in seen:
             continue
         seen.add(key)
-        merged.append({**dict(doc), "retrieval_source": "backfill"})
+        # 保留条目自带来源（external_whitelist 等）；没有来源才默认 backfill。
+        merged.append(
+            {
+                **dict(doc),
+                "retrieval_source": doc.get("retrieval_source") or "backfill",
+            }
+        )
     return merged
 
 
 def make_output_guard_node(
-    index: Any = None, llm: Any = None, read_tool: Any = None
+    index: Any = None,
+    llm: Any = None,
+    read_tool: Any = None,
+    whitelist: Any = None,
 ):
     """把法条索引注入 OutputGuard，供「引用回捞」使用。
 
-    LangGraph 节点签名只接受 state，索引必须走闭包注入 —— 与
+    LangGraph 节点签名只接受 state，索引/白名单必须走闭包注入 —— 与
     `make_context_compress_node(llm)` 同一套做法。
     """
 
     def node(state: LegalState) -> dict[str, Any]:
-        return output_guard_node(state, index, llm, read_tool)
+        return output_guard_node(state, index, llm, read_tool, whitelist)
 
     return node
 
@@ -327,9 +338,12 @@ def output_guard_node(
     index: Any = None,
     llm: Any = None,
     read_tool: Any = None,
+    whitelist: Any = None,
 ) -> dict[str, Any]:
     """输出护栏：引用核实 + 免责声明清理 + 抽取式补引 + 分面证据闸门。"""
-    result = _normalize_partial_disclaimer(_output_guard_core(state, index), state)
+    result = _normalize_partial_disclaimer(
+        _output_guard_core(state, index, whitelist), state
+    )
     result = _repair_facets(result, state, llm, read_tool, index)
     return _apply_facet_gate(result, state)
 
@@ -386,6 +400,47 @@ def _brief_matches_core(brief: dict[str, Any], core: Any) -> bool:
         and same_law(law, str(item[0]))
         for item in (core or [])
     )
+
+
+def _quote_near_law(text: str, law: str | None) -> str | None:
+    """找法名附近引号里的原文；找不到就只做条号存在性核对。"""
+    if not law:
+        return None
+    for needle in (law, law.replace("中华人民共和国", "")):
+        if not needle:
+            continue
+        position = text.rfind(needle)
+        if position < 0:
+            continue
+        for match in re.finditer(r"“[^”]{0,500}”", text):
+            if 0 <= match.start() - position <= 400:
+                return match.group(0)[1:-1]
+    return None
+
+
+def _check_external(
+    law: str,
+    number: int,
+    text: str,
+    whitelist: Any,
+    verified: dict[str, tuple[Any, str]],
+    external: set[str],
+    mismatch: set[str],
+) -> None:
+    """库外引用：白名单命中则记 verified，否则仍走 unverified。"""
+    label = f"《{law}》第{number}条"
+    quote = _quote_near_law(text, law)
+    status, entry = (
+        whitelist.verify(law, number, quote)
+        if whitelist is not None
+        else ("not_found", None)
+    )
+    if entry is not None and status in {"verified_quote", "verified_exists"}:
+        verified[label] = (entry, status)
+        return
+    external.add(label)
+    if status == "quote_mismatch":
+        mismatch.add(label)
 
 
 def _repair_facets(
@@ -607,7 +662,9 @@ def _apply_facet_gate(
     }
 
 
-def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
+def _output_guard_core(
+    state: LegalState, index: Any = None, whitelist: Any = None
+) -> dict[str, Any]:
     """检查生成内容，必要时**原地改写**最后一条 AIMessage。
 
     检查顺序：
@@ -687,6 +744,9 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
 
     unverified: set[int] = set()
     external: set[str] = set()
+    external_verified: dict[str, tuple[Any, str]] = {}
+    external_mismatch: set[str] = set()
+    whitelist_docs: list[dict[str, Any]] = []
     repealed: set[str] = set()
     ambiguous: set[int] = set()
     # 编造引用：(法名, 条号) 在法条库里查不到。核实后从回答正文中剥离，
@@ -744,9 +804,17 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
                         known_law = candidates[0]
                         law_in_corpus = True
 
-            # ③ 语料库里根本没有这部法律（如《刑法》）→ 超出知识库，不算未溯源
+            # ③ 语料库里根本没有这部法律（如《刑法》）→ 先查权威白名单
             if index is not None and law and not law_in_corpus:
-                external.add(f"《{law}》第{number}条")
+                _check_external(
+                    law,
+                    number,
+                    text,
+                    whitelist,
+                    external_verified,
+                    external,
+                    external_mismatch,
+                )
                 continue
 
             doc = index.by_article(number, known_law) if index is not None else None
@@ -762,7 +830,15 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
                 if known_last is not None:
                     doc = index.by_article(number, known_last)
                 elif _looks_like_law(last_law):
-                    external.add(f"《{last_law}》第{number}条")
+                    _check_external(
+                        last_law,
+                        number,
+                        text,
+                        whitelist,
+                        external_verified,
+                        external,
+                        external_mismatch,
+                    )
                     continue
 
             # ⑤ 承前省略法律名 + 条号跨法重复（「第 36 条」在 20 部法里都有）：
@@ -788,7 +864,15 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
             if doc is None:
                 # 没有索引（单测）时保持旧行为：不在本批就是未溯源
                 if index is None and law and allowed_laws and not cited_law_in_batch:
-                    external.add(f"《{law}》第{number}条")
+                    _check_external(
+                        law,
+                        number,
+                        text,
+                        whitelist,
+                        external_verified,
+                        external,
+                        external_mismatch,
+                    )
                 elif known_law is not None or known_last is not None:
                     # 法名可确定、条号在该法里查不到 → 编造，剥离
                     fabricated.append((known_law or known_last, number))
@@ -804,10 +888,25 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
                 label = doc.get("article_label") or f"第{number}条"
                 repealed.add(f"《{doc.get('law_name', '')}》{label}")
 
+    seen_whitelist_ids: set[str] = set()
+    for entry, _status in external_verified.values():
+        doc = entry.to_doc()
+        if doc["id"] in seen_whitelist_ids:
+            continue
+        seen_whitelist_ids.add(doc["id"])
+        whitelist_docs.append(doc)
+
     if fabricated:
         text = _scrub_fabricated(text, fabricated)
 
-    if unverified or external or repealed or ambiguous or fabricated:
+    if (
+        unverified
+        or external
+        or repealed
+        or ambiguous
+        or fabricated
+        or external_verified
+    ):
         parts = []
         if fabricated:
             parts.append(
@@ -834,23 +933,57 @@ def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
                 "以下条号在多部法律中都有，回答未注明法律名，无法确定具体条文："
                 + "、".join(f"第{n}条" for n in sorted(ambiguous))
             )
-        if external:
-            parts.append(
-                "以下引用来自本知识库之外的法律，系统无法校验其内容："
-                + "、".join(sorted(external))
+        if external_verified:
+            sources = sorted(
+                {
+                    entry.source
+                    for entry, _status in external_verified.values()
+                    if entry.source
+                }
             )
+            suffix = f"（来源：{'、'.join(sources)}）" if sources else ""
+            parts.append(
+                "以下引用来自本知识库之外的法律，已与权威白名单核对："
+                + "、".join(sorted(external_verified))
+                + suffix
+            )
+        if external:
+            mismatch_labels = sorted(external & external_mismatch)
+            not_found = sorted(external - external_mismatch)
+            if mismatch_labels:
+                parts.append(
+                    "以下引用来自本知识库之外的法律，且与白名单原文不一致，无法校验："
+                    + "、".join(mismatch_labels)
+                )
+            if not_found:
+                parts.append(
+                    "以下引用来自本知识库之外的法律，白名单未收录，无法校验："
+                    + "、".join(not_found)
+                )
         warning = "\n\n【引用提示】" + "；".join(parts)
         content = text + _render_backfill(list(backfilled.values())) + warning
         if DISCLAIMER not in content:
             content += f"\n\n{DISCLAIMER}"
-        merged = _merge_docs(docs, list(backfilled.values()))
+        merged = _merge_docs(
+            docs, [*backfilled.values(), *whitelist_docs]
+        )
+        has_unverified = bool(
+            unverified or external or repealed or ambiguous or fabricated
+        )
         return {
             **base,
             "messages": [target.model_copy(update={"content": content})],
             "retrieved_docs": merged,
-            "external_citations": sorted(external),
-            "output_blocked": True,
-            "output_reason": "unverified_citation",
+            "external_citations": sorted([*external_verified, *external]),
+            "external_verified": [
+                entry.summary(status)
+                for entry, status in external_verified.values()
+            ],
+            "external_unverified": sorted(external),
+            "output_blocked": has_unverified,
+            "output_reason": (
+                "unverified_citation" if has_unverified else "external_verified"
+            ),
         }
 
     if backfilled:

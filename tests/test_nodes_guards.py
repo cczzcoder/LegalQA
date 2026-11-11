@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from legalqa import config
 from legalqa.corpus.index import VectorIndex
+from legalqa.external import ExternalEntry, ExternalWhitelist
 from legalqa.nodes.guards import (
     DISCLAIMER,
     extract_text,
@@ -281,6 +282,75 @@ def test_output_guard_records_external_citations() -> None:
     assert out["external_citations"] == ["《刑法》第245条"]
     assert out["output_reason"] == "unverified_citation"
     assert "知识库之外" in out["messages"][0].content
+
+
+def _criminal_whitelist() -> ExternalWhitelist:
+    return ExternalWhitelist(
+        [
+            ExternalEntry(
+                law_name="中华人民共和国刑法",
+                article_no=246,
+                article_label="第二百四十六条",
+                text=(
+                    "以暴力或者其他方法公然侮辱他人或者捏造事实诽谤他人，"
+                    "情节严重的，处三年以下有期徒刑、拘役、管制或者剥夺政治权利。"
+                ),
+                source="测试白名单",
+                source_url="https://example.test",
+                version_date="2023-12-29",
+            )
+        ]
+    )
+
+
+def test_output_guard_verifies_external_citation_with_whitelist() -> None:
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="网上造谣怎么维权"),
+            AIMessage(
+                id="a1",
+                content=(
+                    "依据《刑法》第二百四十六条：“捏造事实诽谤他人，"
+                    f"情节严重的，处三年以下有期徒刑。”\n\n{DISCLAIMER}"
+                ),
+            ),
+        ]
+    )
+    out = output_guard_node(
+        state, index=_corpus_index(), whitelist=_criminal_whitelist()
+    )
+
+    assert out["external_verified"]
+    assert out["external_unverified"] == []
+    assert out["output_reason"] == "external_verified"
+    assert out["output_blocked"] is False
+    assert any(
+        doc.get("retrieval_source") == "external_whitelist"
+        for doc in out["retrieved_docs"]
+    )
+
+
+def test_output_guard_flags_external_quote_mismatch() -> None:
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="网上造谣怎么维权"),
+            AIMessage(
+                id="a1",
+                content=(
+                    "依据《刑法》第二百四十六条：“可以随便造谣。”"
+                    f"\n\n{DISCLAIMER}"
+                ),
+            ),
+        ]
+    )
+    out = output_guard_node(
+        state, index=_corpus_index(), whitelist=_criminal_whitelist()
+    )
+
+    assert out["external_unverified"] == ["《刑法》第246条"]
+    assert out["external_verified"] == []
+    assert out["output_reason"] == "unverified_citation"
+    assert out["output_blocked"] is True
 
 
 def test_output_guard_repairs_truncated_disclaimer() -> None:

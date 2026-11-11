@@ -15,6 +15,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import END, START, StateGraph
 
 from legalqa import config
+from legalqa.external import load_whitelist
 from legalqa.nodes.agent import make_agent_node, make_tool_node
 from legalqa.nodes.clarify import clarify_node
 from legalqa.nodes.context import make_context_compress_node
@@ -133,9 +134,15 @@ def build_graph(
     mode: str = LOOP,
     index: Any = None,
     supplement_user_query: bool = False,
+    external_whitelist: Any = None,
 ) -> Any:
     if mode not in (LOOP, PIPELINE):
         raise ValueError(f"未知模式 {mode!r}，可选：{LOOP} / {PIPELINE}")
+    whitelist = (
+        external_whitelist
+        if external_whitelist is not None
+        else load_whitelist()
+    )
 
     # 索引用于 OutputGuard 的「引用回捞」：回答里引的条号不在本批材料时，
     # 按 (法律名, 条号) 回查法条库，区分「只是没召回」和「编造」。
@@ -150,7 +157,10 @@ def build_graph(
     graph.add_node("plan", make_plan_node(llm))
     # 传 llm 才启用滚动摘要：窗口之外的历史压成事实摘要，避免 6 轮后失忆
     graph.add_node("context_compress", make_context_compress_node(llm))
-    graph.add_node("output_guard", make_output_guard_node(index, llm, read_tool))
+    graph.add_node(
+        "output_guard",
+        make_output_guard_node(index, llm, read_tool, whitelist),
+    )
     graph.add_node("static_fallback", static_fallback_node)
     graph.add_node("save_state", save_state_node)
     graph.add_node("clarify", clarify_node)

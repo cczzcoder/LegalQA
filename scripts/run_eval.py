@@ -81,7 +81,7 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
     #   - raw_docs：只有工具真正检索到的，用于「检索覆盖」与失败诊断
     # 混在一起会让诊断把「回捞到的」误认为「检索到了」。
     all_docs = list(state.retrieved_docs or [])
-    raw_docs = [d for d in all_docs if d.get("retrieval_source") != "backfill"]
+    raw_docs = [d for d in all_docs if d.get("retrieval_source") not in {"backfill", "external_whitelist"}]
     backfilled_docs = [d for d in all_docs if d.get("retrieval_source") == "backfill"]
 
     def _brief(doc: dict) -> dict:
@@ -120,6 +120,8 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         output_blocked=bool(state.output_blocked),
         guard_reason=str(state.output_reason or ""),
         external_citations=list(state.external_citations or []),
+        external_verified=list(state.external_verified or []),
+        external_unverified=list(state.external_unverified or []),
     )
 
     report.checks.append(check_disclaimer(checked))
@@ -372,6 +374,8 @@ def main() -> int:
                 "output_blocked": r.output_blocked,
                 "guard_reason": r.guard_reason,
                 "external_citations": r.external_citations,
+                "external_verified": r.external_verified,
+                "external_unverified": r.external_unverified,
                 "checks": [
                     {"name": c.name, "passed": c.passed, "detail": c.detail}
                     for c in r.checks

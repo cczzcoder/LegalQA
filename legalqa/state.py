@@ -81,6 +81,9 @@ class LegalState:
     output_reason: str = ""
     # 知识库之外、无法逐字校验的引用（如《刑法》第 X 条）。
     external_citations: list[str] = field(default_factory=list)
+    # 已与权威白名单核对 / 仍未校验的库外引用。
+    external_verified: list[dict] = field(default_factory=list)
+    external_unverified: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # E. RAG

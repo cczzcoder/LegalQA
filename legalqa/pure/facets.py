@@ -553,8 +553,14 @@ def build_repair_prompt(
     return "\n".join(blocks)
 
 
+_QUOTE_NOISE = re.compile(
+    r"[\s，。；：、！？,.;:!?“”\"'‘’（）()《》【】\[\]]+"
+)
+
+
 def _normalize_quote(text: str) -> str:
-    return re.sub(r"\s+", "", str(text or ""))
+    """引文比对忽略空白与标点差异，但不放过任何实词改写。"""
+    return _QUOTE_NOISE.sub("", str(text or ""))
 
 
 def parse_repair(raw: str | None) -> dict[int, dict[str, Any]]:
