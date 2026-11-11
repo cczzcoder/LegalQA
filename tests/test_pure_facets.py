@@ -60,6 +60,16 @@ def test_detect_issue_facets_single_issue_returns_empty() -> None:
     assert detect_issue_facets("工伤怎么认定？") == []
 
 
+def test_detect_procedure_facet_for_parallel_proceedings() -> None:
+    facets = detect_issue_facets(
+        "我先去告老板不认我是他员工，又去申请工伤认定，"
+        "法院让我等劳动关系官司打完再审工伤，这样合理吗？"
+    )
+    texts = " ".join(facet["text"] for facet in facets)
+    assert "工伤认定程序与中止" in texts
+    assert "中止审理" in " ".join(facet["query"] for facet in facets)
+
+
 def test_should_refine_long_compound() -> None:
     assert should_refine_facets(HARD_QUERY, split_query(HARD_QUERY))
 
