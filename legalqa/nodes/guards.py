@@ -19,6 +19,7 @@ from typing import Any, Sequence
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from legalqa import config
+from legalqa.pure.facets import facet_citation_evidence
 from legalqa.pure.retrieval import extract_citations, int_to_cn, resolve_law, same_law
 from legalqa.pure.window import last_human
 from legalqa.state import LegalState
@@ -34,6 +35,8 @@ __all__ = [
 ]
 
 DISCLAIMER = "本回答仅供参考，不构成正式法律意见。"
+# 模型输出被 max_tokens 截断时，可能留下这句的前半截。
+_PARTIAL_DISCLAIMER = "本回答仅供参考，不构成"
 
 # 输出侧的硬红线：法律咨询不能给胜诉承诺
 UNSAFE_OUTPUT_PATTERNS: tuple[str, ...] = (
@@ -82,6 +85,11 @@ TURN_SCOPED_RESET: dict[str, Any] = {
     "dense_top1": 0.0,
     "retrieval_channel": "",
     "retrieval_latency_ms": 0,
+    # 分面检索
+    "facets": [],
+    "facet_plan_source": "",
+    "facet_attempts": [],
+    "coverage_gaps": [],
     # 压缩视图（每轮重算）
     "llm_messages": [],
     "compressed": False,
@@ -303,6 +311,91 @@ def make_output_guard_node(index: Any = None):
 
 
 def output_guard_node(state: LegalState, index: Any = None) -> dict[str, Any]:
+    """输出护栏：引用核实 + 免责声明清理 + 分面证据闸门。"""
+    result = _normalize_partial_disclaimer(_output_guard_core(state, index), state)
+    return _apply_facet_gate(result, state)
+
+
+def _final_ai_message(
+    result: dict[str, Any], state: LegalState
+) -> AIMessage | None:
+    messages = list(result.get("messages") or [])
+    if messages and isinstance(messages[-1], AIMessage):
+        return messages[-1]
+    for message in reversed(state.get("messages") or []):
+        if isinstance(message, AIMessage):
+            return message
+    return None
+
+
+def _normalize_partial_disclaimer(
+    result: dict[str, Any], state: LegalState
+) -> dict[str, Any]:
+    """把被截断的「本回答仅供参考，不构成」补成完整免责声明。"""
+    target = _final_ai_message(result, state)
+    if target is None:
+        return result
+    text = str(target.content)
+    position = text.find(_PARTIAL_DISCLAIMER)
+    if position < 0 or text.startswith(DISCLAIMER, position):
+        return result
+    cleaned = text[:position].rstrip()
+    updated = target.model_copy(
+        update={"content": f"{cleaned}\n\n{DISCLAIMER}"}
+    )
+    return {**result, "messages": [updated]}
+
+
+def _answer_body_for_citation(text: str) -> str:
+    """去掉回捞附录和引用提示，只留模型正文做引用覆盖检查。"""
+    body = str(text or "")
+    for marker in ("【补充核对】", "【引用提示】"):
+        position = body.find(marker)
+        if position >= 0:
+            body = body[:position]
+    return body
+
+
+def _apply_facet_gate(
+    result: dict[str, Any], state: LegalState
+) -> dict[str, Any]:
+    """分面证据闸门：没有拿到检索结果、或检索到却没引用的方面，必须显式说明。
+
+    只做「追加提示」，不改正文论断；目的是避免把「没检索」说成
+    「现有资料未涵盖」。没有分面清单时完全透传。
+    """
+    facets = list(state.get("facets") or [])
+    if not facets:
+        return result
+
+    target = _final_ai_message(result, state)
+    if target is None:
+        return result
+
+    missing = facet_citation_evidence(
+        facets,
+        state.get("facet_attempts") or [],
+        _answer_body_for_citation(str(target.content)),
+    )
+    if not missing:
+        return result
+
+    lines = [
+        f"{item['index']}. {item['text']}（{item['reason']}）" for item in missing
+    ]
+    note = "\n\n【覆盖提示】以下方面本轮未获得可核验依据：\n" + "\n".join(lines)
+
+    content = str(target.content)
+    if "【覆盖提示】" not in content:
+        target = target.model_copy(update={"content": content + note})
+    return {
+        **result,
+        "messages": [target],
+        "coverage_gaps": [str(item["text"]) for item in missing],
+    }
+
+
+def _output_guard_core(state: LegalState, index: Any = None) -> dict[str, Any]:
     """检查生成内容，必要时**原地改写**最后一条 AIMessage。
 
     检查顺序：

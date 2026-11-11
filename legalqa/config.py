@@ -197,7 +197,9 @@ TOTAL_TIMEOUT_S: Final[float] = 30.0
 # 低温不仅更可重复，准确率也更高——高温度下模型更"活跃"，
 # 容易补充记忆里的条文，导致引用不可溯源。
 LLM_TEMPERATURE: Final[float] = 0.0
-LLM_MAX_TOKENS: Final[int] = 1024
+# 1024 对单问足够，但 4-5 个方面的复合回答会在免责声明处被截断；
+# 1536 与 eval 的 MAX_ANSWER_CHARS=2500 大致对齐。
+LLM_MAX_TOKENS: Final[int] = 1536
 LLM_TOP_P: Final[float] = 0.9
 LLM_TIMEOUT_S: Final[float] = 60.0
 

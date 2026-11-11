@@ -37,6 +37,7 @@ __all__ = [
     "check_expected_citation",
     "check_coverage",
     "check_required_citations",
+    "check_facet_coverage",
     "extract_answer",
     "strip_backfill_appendix",
     "strip_system_notes",
@@ -126,6 +127,8 @@ class CaseReport:
     # 必引法源：复杂问题要求每个方面至少引到一组法源。
     # 与 coverage 一样先独立观察，不直接参与通过判定。
     required_citations: CheckResult | None = None
+    # 分面证据：每个方面是否至少有一次检索命中（由 Plan/ToolNode 记录）。
+    facet_coverage: CoverageResult | None = None
     # 输出护栏的诊断信息。护栏改写/拦截过回答时保留原因，
     # 避免「护栏拦住了错误引用」和「模型本来就没引错」在指标上混在一起。
     output_blocked: bool = False
@@ -348,6 +351,34 @@ def check_required_citations(
     if missing:
         detail += "；缺：" + "；".join(missing)
     return CheckResult("必引法源", satisfied == len(groups), detail)
+
+
+def check_facet_coverage(
+    facets: Sequence[dict[str, Any]] | None,
+    attempts: Sequence[dict[str, Any]] | None,
+) -> CoverageResult:
+    """每个分面是否至少有一次检索命中。
+
+    与 `check_coverage`（看回答里有没有说到）互补：这里看的是
+    「检索层有没有为这个方面拿到材料」，用于区分「没检索」和「没答到」。
+    """
+    items = [item for item in (facets or []) if isinstance(item, dict)]
+    if not items:
+        return CoverageResult()
+
+    missing: list[str] = []
+    covered = 0
+    for index, facet in enumerate(items, start=1):
+        hit = any(
+            item.get("facet") == index and item.get("hit")
+            for item in (attempts or [])
+            if isinstance(item, dict)
+        )
+        if hit:
+            covered += 1
+        else:
+            missing.append(str(facet.get("text") or f"第{index}个方面"))
+    return CoverageResult(total=len(items), covered=covered, missing=missing)
 
 
 def check_expected_citation(

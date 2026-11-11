@@ -19,6 +19,7 @@ from pydantic import ConfigDict, Field
 from legalqa import config
 from legalqa.corpus.index import VectorIndex
 from legalqa.graph import LOOP, PIPELINE, build_graph, route_after_agent
+from legalqa.nodes.agent import make_tool_node
 from legalqa.nodes.guards import DISCLAIMER
 from legalqa.state import LegalState, coerce_state
 from legalqa.tools.read_tool import ReadTool
@@ -162,6 +163,65 @@ def test_plan_note_injected_for_ordinal_followup() -> None:
     )
     assert state.resolved_query == "孩子抚养权归谁"
     assert state.ordinal_reason == "ordinal_first"
+
+
+def test_plan_injects_facet_checklist() -> None:
+    """长复合问题要生成分面清单，并要求每个方面分别检索。"""
+    llm = MockChatModel(
+        script=[
+            AIMessage(
+                id="plan",
+                content=(
+                    '[{"text":"解除与补偿","query":"拖欠工资 解除合同 经济补偿"},'
+                    '{"text":"双倍工资与举证","query":"未签合同 二倍工资 举证责任"}]'
+                ),
+            ),
+            AIMessage(id="a1", content=f"答案。\n\n{DISCLAIMER}"),
+        ]
+    )
+    app = build_graph(llm=llm, read_tool=make_tool())
+
+    state = run_turn(
+        app,
+        "公司拖欠我三个月工资，我能不能解除合同并要求经济补偿；"
+        "公司一直没签书面劳动合同，我能不能主张双倍工资，举证责任又该怎么分配？",
+    )
+
+    assert state.facet_plan_source == "llm"
+    assert len(state.facets) == 2
+    prompt = llm.seen_messages[-1]
+    assert any("需要分别检索的方面" in str(m.content) for m in prompt)
+
+
+def test_tool_node_records_facet_attempt() -> None:
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="复合问题"),
+            AIMessage(
+                id="a1",
+                content="",
+                tool_calls=[
+                    {
+                        "id": "c1",
+                        "name": "read_law",
+                        "args": {"query": "第一条", "facet": 1},
+                    }
+                ],
+            ),
+        ],
+        facets=[
+            {"text": "方面A", "query": "方面A"},
+            {"text": "方面B", "query": "方面B"},
+        ],
+        user_query="复合问题",
+    )
+
+    out = make_tool_node(make_tool())(state)
+
+    attempts = out["facet_attempts"]
+    assert len(attempts) == 1
+    assert attempts[0]["facet"] == 1
+    assert attempts[0]["hit"] is True
 
 
 def test_tool_node_uses_resolved_query_when_model_passes_original() -> None:

@@ -369,6 +369,15 @@ def same_law(cited: str | None, known: str) -> bool:
     # 短名只允许精确匹配：「合同法」是「劳动合同法」的后缀，但不是同一部法。
     # 后缀匹配只用于「婚姻家庭编的解释（一）」这类较长的省略形式。
     if min(len(a), len(b)) < 4:
+        # 例外：「意见（三）」「解释（一）」归一化去掉括号后只有 3 个字，
+        # 但序号后缀足够区分，不能因此把已在库的法源判成外部法律。
+        short = a if len(a) < len(b) else b
+        if (
+            len(short) == 3
+            and short[-1] in "一二三四五六七八九十"
+            and short[:-1] in {"意见", "解释"}
+        ):
+            return a.endswith(b) or b.endswith(a)
         return False
     return a.endswith(b) or b.endswith(a)
 

@@ -20,6 +20,7 @@ from legalqa.nodes.context import make_context_compress_node
 from legalqa.nodes.fallback import save_state_node, static_fallback_node
 from legalqa.nodes.guards import input_guard_node, make_output_guard_node
 from legalqa.nodes.plan import make_plan_node
+from legalqa.pure.facets import effective_tool_budget
 from legalqa.state import LegalState
 from legalqa.tools.read_tool import READ_TOOL_SPEC, ReadTool
 
@@ -73,7 +74,9 @@ def route_after_agent(state: LegalState) -> str:
     if not getattr(last, "tool_calls", None):
         return "end"
 
-    if len(state.get("tool_call_history") or []) >= config.MAX_TOOL_CALLS:
+    if len(state.get("tool_call_history") or []) >= effective_tool_budget(
+        state.get("facets") or []
+    ):
         return "answer"
     return "tools"
 
@@ -138,7 +141,7 @@ def build_graph(
     graph.add_node("input_guard", input_guard_node)
     # 确定性序号解析：读完整历史，把「第 N 个问题」还原成独立问题。
     # 没有任何序号时原样透传，不影响单问链路。
-    graph.add_node("plan", make_plan_node())
+    graph.add_node("plan", make_plan_node(llm))
     # 传 llm 才启用滚动摘要：窗口之外的历史压成事实摘要，避免 6 轮后失忆
     graph.add_node("context_compress", make_context_compress_node(llm))
     graph.add_node("output_guard", make_output_guard_node(index))

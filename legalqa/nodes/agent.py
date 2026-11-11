@@ -21,6 +21,12 @@ from typing import Any, Callable, Sequence
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
 
 from legalqa import config
+from legalqa.pure.facets import (
+    build_facet_checklist,
+    effective_tool_budget,
+    facet_evidence,
+    match_facet,
+)
 from legalqa.pure.window import insert_before_last_human
 from legalqa.state import LegalState
 from legalqa.tools.read_tool import (
@@ -111,8 +117,9 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
         # 带 tool_calls 的 AIMessage —— 用户收到**0 字回答**，免责声明也无处可加。
         # 判据用「已执行次数」而不是「本轮调用数」：一批里多发几个是允许的，
         # 但一旦累计到上限，下一次调用就物理上不给工具。
+        budget = effective_tool_budget(state.get("facets") or [])
         tool_budget_exhausted = (
-            len(state.get("tool_call_history") or []) >= config.MAX_TOOL_CALLS
+            len(state.get("tool_call_history") or []) >= budget
         )
         over_budget = iteration_exhausted or tool_budget_exhausted
         messages = list(state.get("llm_messages") or [])
@@ -127,6 +134,13 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
                 "【系统提示】本轮追问中的序号指代已解析为："
                 f"{resolved}。请围绕该问题作答；调用 read_law 时，"
                 "query 必须包含该问题的关键词。",
+            )
+
+        # 复合问题的分面清单：要求每个方面各检索一次，避免只查最显眼的一个。
+        facets = list(state.get("facets") or [])
+        if facets:
+            messages = insert_before_last_human(
+                messages, build_facet_checklist(facets)
             )
 
         if not messages:
@@ -147,11 +161,21 @@ def make_agent_node(llm: Any, tool_specs: Sequence[dict] | None = None) -> Calla
         # 否则模型会输出「再检索一下工伤认定程序……」这种半句话 —— 它想调工具
         # 但工具已经没了，于是把意图写进正文，用户看到一条没头没尾的回答。
         if over_budget:
+            missing = facet_evidence(
+                state.get("facets") or [], state.get("facet_attempts") or []
+            )
+            unfilled = ""
+            if missing:
+                unfilled = " 本轮尚未覆盖的方面：" + "；".join(
+                    f"{item['index']}. {item['text']}" for item in missing
+                ) + "。"
             messages = insert_before_last_human(
                 messages,
                 "【系统提示】检索次数已用尽，不能再调用任何工具。"
-                "请立即基于以上已有材料给出最终回答；"
-                "材料不足的部分直接说明「现有资料未涵盖」，不要描述你打算做什么。",
+                "请立即基于以上已有材料给出最终回答；已检索的方面按材料作答，"
+                "未检索到的方面直接说明「该方面未检索到依据」，"
+                "不要笼统说「现有资料未涵盖」，也不要描述你打算做什么。"
+                + unfilled,
             )
 
         try:
@@ -269,6 +293,8 @@ def make_tool_node(
         # （认定条件 + 待遇标准），最后 state 里只剩后一次的 4 条，
         # OutputGuard 的引用溯源于是把前一次查到的条文判成「未溯源」。
         accumulated: list[dict] = list(state.get("retrieved_docs") or [])
+        facets = list(state.get("facets") or [])
+        facet_attempts = list(state.get("facet_attempts") or [])
 
         for call in calls:
             name = str(call.get("name", ""))
@@ -308,6 +334,19 @@ def make_tool_node(
             resolved = str(state.get("resolved_query") or "").strip()
             if resolved and query.strip() == str(state.get("user_query") or "").strip():
                 query = resolved
+
+            # 方面编号：优先用模型按清单填的 facet；没填就按 query 相似度归档。
+            facet_index: int | None = None
+            raw_facet = args.get("facet")
+            if isinstance(raw_facet, int) and 1 <= raw_facet <= len(facets):
+                facet_index = raw_facet
+            elif isinstance(raw_facet, str) and raw_facet.isdigit():
+                candidate = int(raw_facet)
+                if 1 <= candidate <= len(facets):
+                    facet_index = candidate
+            elif facets:
+                facet_index = match_facet(query, facets)
+
             try:
                 result = read_tool.run(query, messages)
             except Exception as exc:      # 双保险：工具内部已兜底，这里再兜一层
@@ -339,6 +378,22 @@ def make_tool_node(
                 )
             )
             accumulated.extend(result.docs)
+            if facets:
+                facet_attempts.append(
+                    {
+                        "facet": facet_index,
+                        "query": query,
+                        "hit": result.hit,
+                        "score": round(result.score, 4),
+                        "docs": [
+                            {
+                                "law_name": str(doc.get("law_name", "")),
+                                "article_no": doc.get("article_no"),
+                            }
+                            for doc in result.docs
+                        ],
+                    }
+                )
             if best is None or result.score > best.score:
                 best = result
 
@@ -346,6 +401,7 @@ def make_tool_node(
             **base,
             "messages": new_results,
             "tool_call_history": [*history, *executed],
+            "facet_attempts": facet_attempts,
         }
         if best is not None:
             # 按 id 去重，保留首次出现的顺序（已按融合分排序）

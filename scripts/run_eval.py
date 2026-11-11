@@ -43,6 +43,7 @@ from legalqa.eval import (  # noqa: E402
     check_expected_citation,
     check_refusal,
     check_required_citations,
+    check_facet_coverage,
     check_traceability,
     extract_answer,
     strip_backfill_appendix,
@@ -109,6 +110,11 @@ def evaluate_one(app, index, case: dict) -> CaseReport:
         required_citations=(
             check_required_citations(model_body, case.get("must_cite"))
             if case.get("must_cite")
+            else None
+        ),
+        facet_coverage=(
+            check_facet_coverage(state.facets, state.facet_attempts)
+            if state.facets
             else None
         ),
         output_blocked=bool(state.output_blocked),
@@ -219,6 +225,8 @@ def main() -> int:
             extra = f" 覆盖{report.coverage.covered}/{report.coverage.total}" if report.coverage else ""
             if report.required_citations:
                 extra += f" 必引{report.required_citations.detail}"
+            if report.facet_coverage and report.facet_coverage.total:
+                extra += f" 分面{report.facet_coverage.covered}/{report.facet_coverage.total}"
             print(
                 f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
                 f"轮次{report.iterations} {report.channel or '-':<6} {case['query'][:24]}{extra}"
@@ -233,6 +241,8 @@ def main() -> int:
             extra = f" 覆盖{report.coverage.covered}/{report.coverage.total}" if report.coverage else ""
             if report.required_citations:
                 extra += f" 必引{report.required_citations.detail}"
+            if report.facet_coverage and report.facet_coverage.total:
+                extra += f" 分面{report.facet_coverage.covered}/{report.facet_coverage.total}"
             print(
                 f"  {mark} {report.case_id:<14} {report.latency_ms/1000:>5.1f}s "
                 f"轮次{report.iterations} {report.channel or '-':<6} {report.query[:24]}{extra}"
@@ -288,6 +298,17 @@ def main() -> int:
             f"（每个方面至少引到一组法源，不参与通过判定）"
         )
 
+    facet_reports = [
+        r.facet_coverage for r in reports if r.facet_coverage and r.facet_coverage.total
+    ]
+    if facet_reports:
+        fully = sum(1 for item in facet_reports if item.passed)
+        avg = sum(item.ratio for item in facet_reports) / len(facet_reports) * 100
+        print(
+            f"  {'分面覆盖':<12} {fully:>3}/{len(facet_reports):<3} "
+            f"{avg:>6.1f}%  （每个方面至少检索命中一次，不参与通过判定）"
+        )
+
     failures = [r for r in reports if not r.passed]
     if failures:
         print(f"\n失败用例 {len(failures)} 条:")
@@ -334,6 +355,17 @@ def main() -> int:
                         "detail": r.required_citations.detail,
                     }
                     if r.required_citations
+                    else None
+                ),
+                "facet_coverage": (
+                    {
+                        "total": r.facet_coverage.total,
+                        "covered": r.facet_coverage.covered,
+                        "passed": r.facet_coverage.passed,
+                        "ratio": round(r.facet_coverage.ratio, 4),
+                        "missing": r.facet_coverage.missing,
+                    }
+                    if r.facet_coverage
                     else None
                 ),
                 "output_blocked": r.output_blocked,

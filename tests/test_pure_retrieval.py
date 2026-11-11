@@ -421,3 +421,24 @@ def test_extract_citations_ignores_non_law_parenthetical() -> None:
     text = "《中华人民共和国民用航空法》第一百二十八条（2025-12-27 版本）规定。"
     pairs = extract_citations(text, ["中华人民共和国民用航空法"])
     assert pairs == [("中华人民共和国民用航空法", 128)]
+
+
+def test_same_law_short_serial_suffix() -> None:
+    """「意见（三）」「解释（一）」这类简称不能被 4 字阈值挡掉。"""
+    from legalqa.pure.retrieval import same_law
+
+    assert same_law(
+        "意见（三）",
+        "人力资源社会保障部关于执行《工伤保险条例》若干问题的意见（三）",
+    )
+    assert same_law(
+        "解释（一）", "最高人民法院关于审理劳动争议案件适用法律问题的解释（一）"
+    )
+    assert not same_law("合同法", "中华人民共和国劳动合同法")
+
+
+def test_resolve_law_short_serial_suffix() -> None:
+    from legalqa.pure.retrieval import resolve_law
+
+    laws = ["人力资源社会保障部关于执行《工伤保险条例》若干问题的意见（三）"]
+    assert resolve_law("意见（三）", laws) == laws[0]

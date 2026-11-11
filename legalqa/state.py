@@ -86,6 +86,11 @@ class LegalState:
     dense_top1: float = 0.0
     retrieval_channel: str = ""     # exact / dense / none
     retrieval_latency_ms: int = 0
+    # 通用分面检索：复合问题拆成 2–4 个方面，每个方面至少检索一次。
+    facets: list[dict] = field(default_factory=list)
+    facet_plan_source: str = ""     # none / deterministic / llm / deterministic_fallback
+    facet_attempts: list[dict] = field(default_factory=list)
+    coverage_gaps: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # F. 降级与兜底

@@ -265,6 +265,60 @@ def test_input_guard_keeps_history_and_turn_id() -> None:
     assert "trace" not in out or out["trace"] != [], "trace 应保留"
 
 
+def test_output_guard_repairs_truncated_disclaimer() -> None:
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="问题"),
+            AIMessage(id="a1", content="答案。\n\n本回答仅供参考，不构成"),
+        ]
+    )
+    out = output_guard_node(state)
+    content = out["messages"][0].content
+    assert DISCLAIMER in content
+    assert content.count("本回答仅供参考，不构成") == 1
+
+
+def test_output_guard_adds_facet_gap_note() -> None:
+    """分面没有检索到证据、或检索到却没引用时，回答末尾必须显式说明。"""
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="复合问题"),
+            AIMessage(id="a1", content=f"依据《X法》第一条。\n\n{DISCLAIMER}"),
+        ],
+        facets=[
+            {"text": "方面A", "query": "方面A"},
+            {"text": "方面B", "query": "方面B"},
+        ],
+        facet_attempts=[
+            {
+                "facet": 1,
+                "hit": True,
+                "query": "方面A",
+                "docs": [{"law_name": "X法", "article_no": 1}],
+            }
+        ],
+    )
+
+    out = output_guard_node(state)
+
+    content = out["messages"][0].content
+    assert "【覆盖提示】" in content
+    assert "方面B" in content
+    assert out["coverage_gaps"] == ["方面B"]
+
+
+def test_output_guard_without_facets_has_no_gap_note() -> None:
+    state = LegalState(
+        messages=[
+            HumanMessage(id="h1", content="单问"),
+            AIMessage(id="a1", content=f"答案。\n\n{DISCLAIMER}"),
+        ]
+    )
+    out = output_guard_node(state)
+    if out.get("messages"):
+        assert "【覆盖提示】" not in out["messages"][0].content
+
+
 # ---------------------------------------------------------------------------
 # 回归：OutputGuard 只处理最终回答
 # ---------------------------------------------------------------------------
